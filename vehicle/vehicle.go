@@ -10,7 +10,7 @@ import (
 	"github.com/evcc-io/evcc/util"
 )
 
-//go:generate go tool decorate -f decorateVehicle -b api.Vehicle -t "api.SocLimiter,GetLimitSoc,func() (int64, error)" -t "api.ChargeState,Status,func() (api.ChargeStatus, error)" -t "api.VehicleRange,Range,func() (int64, error)" -t "api.VehicleOdometer,Odometer,func() (float64, error)" -t "api.VehicleClimater,Climater,func() (bool, error)" -t "api.CurrentController,MaxCurrent,func(int64) error" -t "api.CurrentGetter,GetMaxCurrent,func() (float64, error)" -t "api.VehicleFinishTimer,FinishTime,func() (time.Time, error)" -t "api.Resurrector,WakeUp,func() error" -t "api.ChargeController,ChargeEnable,func(bool) error"
+//go:generate go tool decorate -f decorateVehicle -b api.Vehicle -t "api.SocLimiter,GetLimitSoc,func() (int64, error)" -t "api.ChargeState,Status,func() (api.ChargeStatus, error)" -t "api.VehicleRange,Range,func() (int64, error)" -t "api.VehicleOdometer,Odometer,func() (float64, error)" -t "api.VehicleClimater,Climater,func() (bool, error)" -t "api.CurrentController,MaxCurrent,func(int64) error" -t "api.CurrentGetter,GetMaxCurrent,func() (float64, error)" -t "api.VehicleFinishTimer,FinishTime,func() (time.Time, error)" -t "api.Resurrector,WakeUp,func() error" -t "api.ChargeController,ChargeEnable,func(bool) error" -t "api.VehiclePosition,Position,func() (float64, float64, error)"
 
 // Vehicle is an api.Vehicle implementation with configurable getters and setters.
 type Vehicle struct {
@@ -37,6 +37,8 @@ func NewConfigurableFromConfig(ctx context.Context, other map[string]interface{}
 		FinishTime    *plugin.Config
 		Wakeup        *plugin.Config
 		ChargeEnable  *plugin.Config
+		Latitude      *plugin.Config
+		Longitude     *plugin.Config
 	}
 
 	if err := util.DecodeOther(other, &cc); err != nil {
@@ -139,7 +141,39 @@ func NewConfigurableFromConfig(ctx context.Context, other map[string]interface{}
 		return nil, fmt.Errorf("chargeEnable: %w", err)
 	}
 
-	return decorateVehicle(v, limitSoc, status, rng, odo, climater, maxCurrent, getMaxCurrent, finishTime, wakeup, chargeEnable), nil
+	// decorate position
+	var position func() (float64, float64, error)
+	if cc.Latitude != nil || cc.Longitude != nil {
+		if cc.Latitude == nil || cc.Longitude == nil {
+			return nil, fmt.Errorf("position: latitude and longitude must both be configured")
+		}
+
+		latitude, err := cc.Latitude.FloatGetter(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("latitude: %w", err)
+		}
+
+		longitude, err := cc.Longitude.FloatGetter(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("longitude: %w", err)
+		}
+
+		position = func() (float64, float64, error) {
+			lat, err := latitude()
+			if err != nil {
+				return 0, 0, fmt.Errorf("latitude: %w", err)
+			}
+
+			lon, err := longitude()
+			if err != nil {
+				return 0, 0, fmt.Errorf("longitude: %w", err)
+			}
+
+			return lat, lon, nil
+		}
+	}
+
+	return decorateVehicle(v, limitSoc, status, rng, odo, climater, maxCurrent, getMaxCurrent, finishTime, wakeup, chargeEnable, position), nil
 }
 
 // Soc implements the api.Vehicle interface

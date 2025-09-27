@@ -19,6 +19,12 @@ soc: # state of charge
 #range: # range
 #  source: const
 #  value: 123 # km
+#latitude: # latitude in decimal degrees
+#  source: const
+#  value: 52.52
+#longitude: # longitude in decimal degrees
+#  source: const
+#  value: 13.405
 #climater: # climate active
 #  source: const
 #  value: true
