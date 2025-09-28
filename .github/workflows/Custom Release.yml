@@ -69,6 +69,7 @@ jobs:
   hassio:
     name: Publish Hass.io Add-on
     needs:
+      - prepare
       - docker
     runs-on: ubuntu-latest
     steps:
