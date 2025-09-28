@@ -869,10 +869,27 @@ func (lp *Loadpoint) setLimit(current float64) error {
 			actualCurrent = lp.offeredCurrent
 		}
 
-		currentLimit := lp.circuit.ValidateCurrent(actualCurrent, current)
+		var currentLimit float64
+		if prioritizer, ok := lp.circuit.(interface {
+			ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) float64
+		}); ok {
+			currentLimit = prioritizer.ValidateCurrentWithPriority(lp, actualCurrent, current)
+		} else {
+			currentLimit = lp.circuit.ValidateCurrent(actualCurrent, current)
+		}
 
 		activePhases := lp.ActivePhases()
-		powerLimit := lp.circuit.ValidatePower(lp.chargePower, currentToPower(current, activePhases))
+		targetPower := currentToPower(current, activePhases)
+
+		var powerLimit float64
+		if prioritizer, ok := lp.circuit.(interface {
+			ValidatePowerWithPriority(api.CircuitLoad, float64, float64) float64
+		}); ok {
+			powerLimit = prioritizer.ValidatePowerWithPriority(lp, lp.chargePower, targetPower)
+		} else {
+			powerLimit = lp.circuit.ValidatePower(lp.chargePower, targetPower)
+		}
+
 		currentLimitViaPower := powerToCurrent(powerLimit, activePhases)
 
 		current = lp.roundedCurrent(min(currentLimit, currentLimitViaPower))

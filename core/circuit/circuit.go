@@ -1,10 +1,12 @@
 package circuit
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sync"
 	"time"
 
@@ -39,6 +41,11 @@ type Circuit struct {
 
 	currentUpdated time.Time
 	powerUpdated   time.Time
+
+	allocMu      sync.Mutex
+	loads        []api.CircuitLoad
+	powerAlloc   map[api.CircuitLoad]float64
+	currentAlloc map[api.CircuitLoad]float64
 }
 
 // NewFromConfig creates a new Circuit
@@ -240,6 +247,330 @@ func (c *Circuit) updateLoadpoints(loadpoints []api.CircuitLoad) {
 	}
 }
 
+func (c *Circuit) controlsLoad(load api.CircuitLoad) bool {
+	if load == nil {
+		return false
+	}
+
+	return load.GetCircuit() == c
+}
+
+type loadInfo struct {
+	load     api.CircuitLoad
+	priority int
+	desired  float64
+	minimum  float64
+	actual   float64
+	target   bool
+}
+
+func loadPriority(load api.CircuitLoad) int {
+	type priorityProvider interface {
+		EffectivePriority() int
+	}
+
+	if lp, ok := load.(priorityProvider); ok {
+		return lp.EffectivePriority()
+	}
+
+	return 0
+}
+
+func loadMinPower(load api.CircuitLoad) float64 {
+	type minPowerProvider interface {
+		EffectiveMinPower() float64
+	}
+
+	if lp, ok := load.(minPowerProvider); ok {
+		return lp.EffectiveMinPower()
+	}
+
+	return 0
+}
+
+func loadMinCurrent(load api.CircuitLoad) float64 {
+	type minCurrentProvider interface {
+		GetMinCurrent() float64
+	}
+
+	if lp, ok := load.(minCurrentProvider); ok {
+		return lp.GetMinCurrent()
+	}
+
+	return 0
+}
+
+func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float64, bool) {
+	if !c.controlsLoad(load) {
+		return new, false
+	}
+
+	if maxPower := c.GetMaxPower(); maxPower != 0 {
+		c.allocMu.Lock()
+		defer c.allocMu.Unlock()
+
+		if len(c.loads) == 0 {
+			return new, false
+		}
+
+		entries := make([]loadInfo, 0, len(c.loads))
+		found := false
+
+		for _, lp := range c.loads {
+			if !c.controlsLoad(lp) {
+				continue
+			}
+
+			info := loadInfo{
+				load:     lp,
+				priority: loadPriority(lp),
+				actual:   lp.GetChargePower(),
+				desired:  lp.GetChargePower(),
+				minimum:  loadMinPower(lp),
+			}
+
+			if info.actual <= 0 {
+				info.minimum = 0
+			}
+
+			if lp == load {
+				info.actual = old
+				info.desired = new
+				info.target = true
+				found = true
+			}
+
+			if info.desired <= 0 {
+				info.minimum = 0
+			}
+
+			entries = append(entries, info)
+		}
+
+		if !found {
+			// load belongs to this circuit but not part of stored loads yet
+			info := loadInfo{
+				load:     load,
+				priority: loadPriority(load),
+				actual:   old,
+				desired:  new,
+				minimum:  loadMinPower(load),
+				target:   true,
+			}
+
+			if info.actual <= 0 || info.desired <= 0 {
+				info.minimum = 0
+			}
+
+			entries = append(entries, info)
+		}
+
+		directPower := 0.0
+		for _, e := range entries {
+			directPower += e.actual
+		}
+
+		childPower := c.power - directPower
+		if childPower < 0 {
+			childPower = 0
+		}
+
+		remaining := maxPower - childPower
+		if remaining < 0 {
+			remaining = 0
+		}
+
+		if c.powerAlloc == nil {
+			c.powerAlloc = make(map[api.CircuitLoad]float64, len(entries))
+		} else {
+			for k := range c.powerAlloc {
+				delete(c.powerAlloc, k)
+			}
+		}
+
+		slices.SortStableFunc(entries, func(a, b loadInfo) int {
+			if a.priority != b.priority {
+				return cmp.Compare(b.priority, a.priority)
+			}
+
+			switch {
+			case a.target && !b.target:
+				return -1
+			case !a.target && b.target:
+				return 1
+			default:
+				return 0
+			}
+		})
+
+		for _, e := range entries {
+			desired := math.Max(e.desired, 0)
+			minRequired := math.Max(e.minimum, 0)
+
+			if desired <= 0 {
+				minRequired = 0
+			}
+
+			alloc := math.Min(desired, remaining)
+			if desired > 0 && alloc < minRequired {
+				alloc = math.Min(math.Max(minRequired, 0), remaining)
+			}
+
+			if alloc < 0 {
+				alloc = 0
+			}
+
+			c.powerAlloc[e.load] = alloc
+			remaining -= alloc
+
+			if remaining < 0 {
+				remaining = 0
+			}
+		}
+
+		if res, ok := c.powerAlloc[load]; ok {
+			return res, true
+		}
+	}
+
+	return new, false
+}
+
+func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (float64, bool) {
+	if !c.controlsLoad(load) {
+		return new, false
+	}
+
+	if maxCurrent := c.GetMaxCurrent(); maxCurrent != 0 {
+		c.allocMu.Lock()
+		defer c.allocMu.Unlock()
+
+		if len(c.loads) == 0 {
+			return new, false
+		}
+
+		entries := make([]loadInfo, 0, len(c.loads))
+		found := false
+
+		for _, lp := range c.loads {
+			if !c.controlsLoad(lp) {
+				continue
+			}
+
+			info := loadInfo{
+				load:     lp,
+				priority: loadPriority(lp),
+				actual:   lp.GetMaxPhaseCurrent(),
+				desired:  lp.GetMaxPhaseCurrent(),
+				minimum:  loadMinCurrent(lp),
+			}
+
+			if info.actual <= 0 {
+				info.minimum = 0
+			}
+
+			if lp == load {
+				info.actual = old
+				info.desired = new
+				info.target = true
+				found = true
+			}
+
+			if info.desired <= 0 {
+				info.minimum = 0
+			}
+
+			entries = append(entries, info)
+		}
+
+		if !found {
+			info := loadInfo{
+				load:     load,
+				priority: loadPriority(load),
+				actual:   old,
+				desired:  new,
+				minimum:  loadMinCurrent(load),
+				target:   true,
+			}
+
+			if info.actual <= 0 || info.desired <= 0 {
+				info.minimum = 0
+			}
+
+			entries = append(entries, info)
+		}
+
+		directCurrent := 0.0
+		for _, e := range entries {
+			directCurrent += e.actual
+		}
+
+		childCurrent := c.current - directCurrent
+		if childCurrent < 0 {
+			childCurrent = 0
+		}
+
+		remaining := maxCurrent - childCurrent
+		if remaining < 0 {
+			remaining = 0
+		}
+
+		if c.currentAlloc == nil {
+			c.currentAlloc = make(map[api.CircuitLoad]float64, len(entries))
+		} else {
+			for k := range c.currentAlloc {
+				delete(c.currentAlloc, k)
+			}
+		}
+
+		slices.SortStableFunc(entries, func(a, b loadInfo) int {
+			if a.priority != b.priority {
+				return cmp.Compare(b.priority, a.priority)
+			}
+
+			switch {
+			case a.target && !b.target:
+				return -1
+			case !a.target && b.target:
+				return 1
+			default:
+				return 0
+			}
+		})
+
+		for _, e := range entries {
+			desired := math.Max(e.desired, 0)
+			minRequired := math.Max(e.minimum, 0)
+
+			if desired <= 0 {
+				minRequired = 0
+			}
+
+			alloc := math.Min(desired, remaining)
+			if desired > 0 && alloc < minRequired {
+				alloc = math.Min(math.Max(minRequired, 0), remaining)
+			}
+
+			if alloc < 0 {
+				alloc = 0
+			}
+
+			c.currentAlloc[e.load] = alloc
+			remaining -= alloc
+
+			if remaining < 0 {
+				remaining = 0
+			}
+		}
+
+		if res, ok := c.currentAlloc[load]; ok {
+			return res, true
+		}
+	}
+
+	return new, false
+}
+
 func (c *Circuit) overloadOnError(t time.Time, val *float64) {
 	if c.timeout > 0 && time.Since(t) > c.timeout {
 		*val = math.MaxFloat64
@@ -282,6 +613,10 @@ func (c *Circuit) updateMeters() error {
 }
 
 func (c *Circuit) Update(loadpoints []api.CircuitLoad) (err error) {
+	c.allocMu.Lock()
+	c.loads = slices.Clone(loadpoints)
+	c.allocMu.Unlock()
+
 	maxPower := c.GetMaxPower()
 	maxCurrent := c.GetMaxCurrent()
 
@@ -329,6 +664,44 @@ func (c *Circuit) GetChargePower() float64 {
 // GetMaxPhaseCurrent returns the actual current
 func (c *Circuit) GetMaxPhaseCurrent() float64 {
 	return c.current
+}
+
+// ValidatePowerWithPriority validates power requests while considering load priorities
+func (c *Circuit) ValidatePowerWithPriority(load api.CircuitLoad, old, new float64) float64 {
+	if res, ok := c.prioritizePower(load, old, new); ok {
+		if c.parent == nil {
+			return res
+		}
+
+		if pc, ok := c.parent.(interface {
+			ValidatePowerWithPriority(api.CircuitLoad, float64, float64) float64
+		}); ok {
+			return pc.ValidatePowerWithPriority(load, old, res)
+		}
+
+		return c.parent.ValidatePower(old, res)
+	}
+
+	return c.ValidatePower(old, new)
+}
+
+// ValidateCurrentWithPriority validates current requests while considering load priorities
+func (c *Circuit) ValidateCurrentWithPriority(load api.CircuitLoad, old, new float64) float64 {
+	if res, ok := c.prioritizeCurrent(load, old, new); ok {
+		if c.parent == nil {
+			return res
+		}
+
+		if pc, ok := c.parent.(interface {
+			ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) float64
+		}); ok {
+			return pc.ValidateCurrentWithPriority(load, old, res)
+		}
+
+		return c.parent.ValidateCurrent(old, res)
+	}
+
+	return c.ValidateCurrent(old, new)
 }
 
 // ValidatePower validates power request
