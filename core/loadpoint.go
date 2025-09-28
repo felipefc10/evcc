@@ -6,7 +6,6 @@ import (
 	"math"
 	"reflect"
 	"slices"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -380,92 +379,6 @@ func (lp *Loadpoint) requestUpdate() {
 	select {
 	case lp.lpChan <- lp: // request loadpoint update
 	default:
-	}
-}
-
-type priorityBudget struct {
-	power      float64
-	hasPower   bool
-	current    float64
-	hasCurrent bool
-}
-
-func (lp *Loadpoint) schedulePriorityRebalance(powerAlloc, currentAlloc map[api.CircuitLoad]float64, powerPrioritized, currentPrioritized bool) {
-	if (!powerPrioritized || len(powerAlloc) == 0) && (!currentPrioritized || len(currentAlloc) == 0) {
-		return
-	}
-
-	budgets := make(map[*Loadpoint]priorityBudget)
-
-	if powerPrioritized {
-		for load, limit := range powerAlloc {
-			other, ok := load.(*Loadpoint)
-			if !ok {
-				continue
-			}
-
-			budget := budgets[other]
-			budget.power = math.Max(limit, 0)
-			budget.hasPower = true
-			budgets[other] = budget
-		}
-	}
-
-	if currentPrioritized {
-		for load, limit := range currentAlloc {
-			other, ok := load.(*Loadpoint)
-			if !ok {
-				continue
-			}
-
-			budget := budgets[other]
-			budget.current = math.Max(limit, 0)
-			budget.hasCurrent = true
-			budgets[other] = budget
-		}
-	}
-
-	const (
-		powerTolerance   = 1.0
-		currentTolerance = 0.1
-	)
-
-	for other, budget := range budgets {
-		if other == lp {
-			continue
-		}
-
-		var (
-			needsUpdate bool
-			details     []string
-		)
-
-		if budget.hasPower {
-			actualPower := other.GetChargePower()
-			if actualPower > budget.power+powerTolerance {
-				needsUpdate = true
-				details = append(details, fmt.Sprintf("power %.0f->%.0fW", actualPower, budget.power))
-			}
-		}
-
-		if budget.hasCurrent {
-			actualCurrent := other.GetMaxPhaseCurrent()
-			if actualCurrent > budget.current+currentTolerance {
-				needsUpdate = true
-				details = append(details, fmt.Sprintf("current %.1f->%.1fA", actualCurrent, budget.current))
-			}
-		}
-
-		if !needsUpdate {
-			continue
-		}
-
-		if len(details) == 0 {
-			details = append(details, "rebalance")
-		}
-
-		other.log.DEBUG.Printf("priority rebalance: requesting update to satisfy %s", strings.Join(details, ", "))
-		other.requestUpdate()
 	}
 }
 
@@ -956,19 +869,12 @@ func (lp *Loadpoint) setLimit(current float64) error {
 			actualCurrent = lp.offeredCurrent
 		}
 
-		var (
-			currentLimit       float64
-			currentAlloc       map[api.CircuitLoad]float64
-			currentPrioritized bool
-			powerLimit         float64
-			powerAlloc         map[api.CircuitLoad]float64
-			powerPrioritized   bool
-		)
+		var currentLimit float64
 
 		if prioritizer, ok := lp.circuit.(interface {
-			ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) (float64, map[api.CircuitLoad]float64, bool)
+			ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) float64
 		}); ok {
-			currentLimit, currentAlloc, currentPrioritized = prioritizer.ValidateCurrentWithPriority(lp, actualCurrent, current)
+			currentLimit = prioritizer.ValidateCurrentWithPriority(lp, actualCurrent, current)
 		} else {
 			currentLimit = lp.circuit.ValidateCurrent(actualCurrent, current)
 		}
@@ -976,17 +882,16 @@ func (lp *Loadpoint) setLimit(current float64) error {
 		activePhases := lp.ActivePhases()
 		targetPower := currentToPower(current, activePhases)
 
+		var powerLimit float64
 		if prioritizer, ok := lp.circuit.(interface {
-			ValidatePowerWithPriority(api.CircuitLoad, float64, float64) (float64, map[api.CircuitLoad]float64, bool)
+			ValidatePowerWithPriority(api.CircuitLoad, float64, float64) float64
 		}); ok {
-			powerLimit, powerAlloc, powerPrioritized = prioritizer.ValidatePowerWithPriority(lp, lp.chargePower, targetPower)
+			powerLimit = prioritizer.ValidatePowerWithPriority(lp, lp.chargePower, targetPower)
 		} else {
 			powerLimit = lp.circuit.ValidatePower(lp.chargePower, targetPower)
 		}
 
 		currentLimitViaPower := powerToCurrent(powerLimit, activePhases)
-
-		lp.schedulePriorityRebalance(powerAlloc, currentAlloc, powerPrioritized, currentPrioritized)
 
 		current = lp.roundedCurrent(min(currentLimit, currentLimitViaPower))
 	}

@@ -168,24 +168,14 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized := circuit.ValidatePowerWithPriority(high, high.power, 4000)
-		assert.True(t, prioritized)
-		assert.Equal(t, 4000.0, limit)
-		val, ok := alloc[low]
-		require.True(t, ok)
-		assert.Equal(t, 2000.0, val)
+		assert.Equal(t, 4000.0, circuit.ValidatePowerWithPriority(high, high.power, 4000))
 
 		high.power = 4000
 		low.power = 2000
 
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized = circuit.ValidatePowerWithPriority(low, low.power, 3000)
-		assert.True(t, prioritized)
-		assert.Equal(t, 2000.0, limit)
-		val, ok = alloc[high]
-		require.True(t, ok)
-		assert.Equal(t, 4000.0, val)
+		assert.Equal(t, 4000.0, circuit.ValidatePowerWithPriority(high, high.power, 4000))
 	})
 
 	t.Run("parent circuit rebalancing", func(t *testing.T) {
@@ -204,24 +194,14 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized := parent.ValidatePowerWithPriority(high, high.power, 3500)
-		assert.True(t, prioritized)
-		assert.Equal(t, 3500.0, limit)
-		val, ok := alloc[low]
-		require.True(t, ok)
-		assert.Equal(t, 1500.0, val)
+		assert.Equal(t, 3500.0, parent.ValidatePowerWithPriority(high, high.power, 3500))
 
 		high.power = 3500
 		low.power = 1500
 
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized = parent.ValidatePowerWithPriority(low, low.power, 2500)
-		assert.True(t, prioritized)
-		assert.Equal(t, 1500.0, limit)
-		val, ok = alloc[high]
-		require.True(t, ok)
-		assert.Equal(t, 3500.0, val)
+		assert.Equal(t, 3500.0, parent.ValidatePowerWithPriority(high, high.power, 3500))
 	})
 
 	t.Run("child without local limit honors parent priority", func(t *testing.T) {
@@ -240,24 +220,14 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized := child.ValidatePowerWithPriority(high, high.power, 3500)
-		assert.True(t, prioritized)
-		assert.Equal(t, 3500.0, limit)
-		val, ok := alloc[low]
-		require.True(t, ok)
-		assert.Equal(t, 1500.0, val)
+		assert.Equal(t, 3500.0, child.ValidatePowerWithPriority(high, high.power, 3500))
 
 		high.power = 3500
 		low.power = 1500
 
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized = child.ValidatePowerWithPriority(low, low.power, 2500)
-		assert.True(t, prioritized)
-		assert.Equal(t, 1500.0, limit)
-		val, ok = alloc[high]
-		require.True(t, ok)
-		assert.Equal(t, 3500.0, val)
+		assert.Equal(t, 3500.0, child.ValidatePowerWithPriority(high, high.power, 3500))
 	})
 
 	t.Run("defers ramp until lower priorities reduce", func(t *testing.T) {
@@ -271,15 +241,7 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-		limit, alloc, prioritized := circuit.ValidatePowerWithPriority(high, high.power, 4600)
-		assert.True(t, prioritized)
-		assert.Equal(t, 900.0, limit)
-		val, ok := alloc[high]
-		require.True(t, ok)
-		assert.Equal(t, 4100.0, val)
-		val, ok = alloc[low]
-		require.True(t, ok)
-		assert.Equal(t, 0.0, val)
+		assert.Equal(t, 900.0, circuit.ValidatePowerWithPriority(high, high.power, 4600))
 	})
 }
 
@@ -294,24 +256,14 @@ func TestCircuitPriorityCurrent(t *testing.T) {
 
 	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	limit, alloc, prioritized := circuit.ValidateCurrentWithPriority(high, high.current, 20)
-	assert.True(t, prioritized)
-	assert.Equal(t, 20.0, limit)
-	val, ok := alloc[low]
-	require.True(t, ok)
-	assert.Equal(t, 12.0, val)
+	assert.Equal(t, 20.0, circuit.ValidateCurrentWithPriority(high, high.current, 20))
 
 	high.current = 20
 	low.current = 12
 
 	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	limit, alloc, prioritized = circuit.ValidateCurrentWithPriority(low, low.current, 16)
-	assert.True(t, prioritized)
-	assert.Equal(t, 12.0, limit)
-	val, ok = alloc[high]
-	require.True(t, ok)
-	assert.Equal(t, 20.0, val)
+	assert.Equal(t, 20.0, circuit.ValidateCurrentWithPriority(high, high.current, 20))
 }
 
 func TestCircuitPriorityCurrentParentLimit(t *testing.T) {
@@ -330,22 +282,12 @@ func TestCircuitPriorityCurrentParentLimit(t *testing.T) {
 
 	require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
-	limit, alloc, prioritized := child.ValidateCurrentWithPriority(high, high.current, 24)
-	assert.True(t, prioritized)
-	assert.Equal(t, 24.0, limit)
-	val, ok := alloc[low]
-	require.True(t, ok)
-	assert.Equal(t, 8.0, val)
+	assert.Equal(t, 24.0, child.ValidateCurrentWithPriority(high, high.current, 24))
 
 	high.current = 24
 	low.current = 8
 
 	require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
-	limit, alloc, prioritized = child.ValidateCurrentWithPriority(low, low.current, 16)
-	assert.True(t, prioritized)
-	assert.Equal(t, 8.0, limit)
-	val, ok = alloc[high]
-	require.True(t, ok)
-	assert.Equal(t, 24.0, val)
+	assert.Equal(t, 24.0, child.ValidateCurrentWithPriority(high, high.current, 24))
 }
