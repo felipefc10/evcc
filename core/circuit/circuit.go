@@ -252,7 +252,13 @@ func (c *Circuit) controlsLoad(load api.CircuitLoad) bool {
 		return false
 	}
 
-	return load.GetCircuit() == c
+	for circ := load.GetCircuit(); circ != nil; circ = circ.GetParent() {
+		if circ == c {
+			return true
+		}
+	}
+
+	return false
 }
 
 type loadInfo struct {

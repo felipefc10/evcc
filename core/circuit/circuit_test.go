@@ -157,24 +157,52 @@ func TestCircuitCurrents(t *testing.T) {
 }
 
 func TestCircuitPriorityAllocation(t *testing.T) {
-	log := util.NewLogger("prio")
+	t.Run("single circuit", func(t *testing.T) {
+		log := util.NewLogger("prio")
 
-	circuit, err := New(log, "prio", 0, 6000, nil, 0)
-	require.NoError(t, err)
+		circuit, err := New(log, "prio", 0, 6000, nil, 0)
+		require.NoError(t, err)
 
-	high := &stubLoad{circuit: circuit, power: 3000, current: 16, priority: 1}
-	low := &stubLoad{circuit: circuit, power: 3000, current: 16, priority: 0}
+		high := &stubLoad{circuit: circuit, power: 3000, current: 16, priority: 1}
+		low := &stubLoad{circuit: circuit, power: 3000, current: 16, priority: 0}
 
-	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	assert.Equal(t, 4000.0, circuit.ValidatePowerWithPriority(high, high.power, 4000))
+		assert.Equal(t, 4000.0, circuit.ValidatePowerWithPriority(high, high.power, 4000))
 
-	high.power = 4000
-	low.power = 2000
+		high.power = 4000
+		low.power = 2000
 
-	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	assert.Equal(t, 2000.0, circuit.ValidatePowerWithPriority(low, low.power, 3000))
+		assert.Equal(t, 2000.0, circuit.ValidatePowerWithPriority(low, low.power, 3000))
+	})
+
+	t.Run("parent circuit rebalancing", func(t *testing.T) {
+		log := util.NewLogger("parent-prio")
+
+		parent, err := New(log, "parent", 0, 5000, nil, 0)
+		require.NoError(t, err)
+
+		child, err := New(log, "child", 0, 6000, nil, 0)
+		require.NoError(t, err)
+
+		require.NoError(t, child.setParent(parent))
+
+		high := &stubLoad{circuit: child, power: 2500, current: 16, priority: 1}
+		low := &stubLoad{circuit: child, power: 2500, current: 16, priority: 0}
+
+		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 3500.0, parent.ValidatePowerWithPriority(high, high.power, 3500))
+
+		high.power = 3500
+		low.power = 1500
+
+		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 1500.0, parent.ValidatePowerWithPriority(low, low.power, 2500))
+	})
 }
 
 func TestCircuitPriorityCurrent(t *testing.T) {
