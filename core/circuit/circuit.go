@@ -424,6 +424,11 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 		}
 
 		allocations := make(map[api.CircuitLoad]float64, len(entries))
+		actuals := make(map[api.CircuitLoad]float64, len(entries))
+
+		for _, e := range entries {
+			actuals[e.load] = e.actual
+		}
 
 		slices.SortStableFunc(entries, func(a, b loadInfo) int {
 			if a.priority != b.priority {
@@ -468,7 +473,17 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 		if res, ok := allocations[load]; ok {
 			c.logPriorityAllocation("power", maxPower, entries, allocations)
 
-			safeHeadroom := maxPower - (childPower + directPower - old)
+			guardedOthers := 0.0
+			for lp, alloc := range allocations {
+				if lp == load {
+					continue
+				}
+
+				actual := actuals[lp]
+				guardedOthers += math.Max(actual, alloc)
+			}
+
+			safeHeadroom := maxPower - (childPower + guardedOthers)
 			if safeHeadroom < 0 {
 				safeHeadroom = 0
 			}
@@ -569,6 +584,11 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 		}
 
 		allocations := make(map[api.CircuitLoad]float64, len(entries))
+		actuals := make(map[api.CircuitLoad]float64, len(entries))
+
+		for _, e := range entries {
+			actuals[e.load] = e.actual
+		}
 
 		slices.SortStableFunc(entries, func(a, b loadInfo) int {
 			if a.priority != b.priority {
@@ -613,7 +633,17 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 		if res, ok := allocations[load]; ok {
 			c.logPriorityAllocation("current", maxCurrent, entries, allocations)
 
-			safeHeadroom := maxCurrent - (childCurrent + directCurrent - old)
+			guardedOthers := 0.0
+			for lp, alloc := range allocations {
+				if lp == load {
+					continue
+				}
+
+				actual := actuals[lp]
+				guardedOthers += math.Max(actual, alloc)
+			}
+
+			safeHeadroom := maxCurrent - (childCurrent + guardedOthers)
 			if safeHeadroom < 0 {
 				safeHeadroom = 0
 			}

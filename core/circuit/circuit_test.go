@@ -169,8 +169,8 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
 		assert.Equal(t, 3000.0, circuit.ValidatePowerWithPriority(high, high.power, 4000))
+		assert.Equal(t, 2000.0, circuit.ValidatePowerWithPriority(low, low.power, 2000))
 
-		high.power = 4000
 		low.power = 2000
 
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
@@ -195,8 +195,8 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
 		assert.Equal(t, 2500.0, parent.ValidatePowerWithPriority(high, high.power, 3500))
+		assert.Equal(t, 1500.0, parent.ValidatePowerWithPriority(low, low.power, 1500))
 
-		high.power = 3500
 		low.power = 1500
 
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
@@ -221,8 +221,8 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
 		assert.Equal(t, 2500.0, child.ValidatePowerWithPriority(high, high.power, 3500))
+		assert.Equal(t, 1500.0, child.ValidatePowerWithPriority(low, low.power, 1500))
 
-		high.power = 3500
 		low.power = 1500
 
 		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
@@ -230,8 +230,8 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 		assert.Equal(t, 3500.0, child.ValidatePowerWithPriority(high, high.power, 3500))
 	})
 
-	t.Run("defers ramp until lower priorities reduce", func(t *testing.T) {
-		log := util.NewLogger("prio-defer")
+	t.Run("awaits meter confirmation before reallocating headroom", func(t *testing.T) {
+		log := util.NewLogger("prio-reassign")
 
 		circuit, err := New(log, "prio", 0, 4100, nil, 0)
 		require.NoError(t, err)
@@ -241,16 +241,25 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
+		assert.Equal(t, 0.0, circuit.ValidatePowerWithPriority(low, low.power, 0))
 		assert.Equal(t, 900.0, circuit.ValidatePowerWithPriority(high, high.power, 4600))
+
+		high.power = 900
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+
+		low.power = 0
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 4100.0, circuit.ValidatePowerWithPriority(high, high.power, 4600))
 	})
 
-	t.Run("caps ramp to remaining headroom", func(t *testing.T) {
+	t.Run("caps ramp to measured headroom", func(t *testing.T) {
 		log := util.NewLogger("prio-cap")
 
 		circuit, err := New(log, "prio", 0, 4100, nil, 0)
 		require.NoError(t, err)
 
-		high := &stubLoad{circuit: circuit, power: 1000, current: 16, priority: 1}
+		high := &stubLoad{circuit: circuit, power: 900, current: 16, priority: 1}
 		low := &stubLoad{circuit: circuit, power: 3200, current: 16, priority: 0}
 
 		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
@@ -260,31 +269,57 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 }
 
 func TestCircuitPriorityCurrent(t *testing.T) {
-	log := util.NewLogger("prio")
+	t.Run("single circuit", func(t *testing.T) {
+		log := util.NewLogger("prio")
 
-	circuit, err := New(log, "prio", 32, 0, nil, 0)
-	require.NoError(t, err)
+		circuit, err := New(log, "prio", 32, 0, nil, 0)
+		require.NoError(t, err)
 
-	high := &stubLoad{circuit: circuit, current: 16, power: 3000, priority: 1, minCurrent: 0}
-	low := &stubLoad{circuit: circuit, current: 16, power: 3000, priority: 0, minCurrent: 0}
+		high := &stubLoad{circuit: circuit, current: 16, power: 3000, priority: 1, minCurrent: 0}
+		low := &stubLoad{circuit: circuit, current: 16, power: 3000, priority: 0, minCurrent: 0}
 
-	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	assert.Equal(t, 16.0, circuit.ValidateCurrentWithPriority(high, high.current, 20))
+		assert.Equal(t, 16.0, circuit.ValidateCurrentWithPriority(high, high.current, 20))
+		assert.Equal(t, 12.0, circuit.ValidateCurrentWithPriority(low, low.current, 12))
 
-	high.current = 20
-	low.current = 12
+		low.current = 12
 
-	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	assert.Equal(t, 20.0, circuit.ValidateCurrentWithPriority(high, high.current, 20))
+		assert.Equal(t, 20.0, circuit.ValidateCurrentWithPriority(high, high.current, 20))
 
-	high.current = 16
-	low.current = 16
+		low.current = 0
 
-	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
-	assert.Equal(t, 16.0, circuit.ValidateCurrentWithPriority(high, high.current, 32))
+		assert.Equal(t, 32.0, circuit.ValidateCurrentWithPriority(high, high.current, 32))
+	})
+
+	t.Run("awaits meter confirmation before reallocating headroom", func(t *testing.T) {
+		log := util.NewLogger("prio-current-reassign")
+
+		circuit, err := New(log, "prio", 32, 0, nil, 0)
+		require.NoError(t, err)
+
+		high := &stubLoad{circuit: circuit, current: 0, power: 3000, priority: 1, minCurrent: 0}
+		low := &stubLoad{circuit: circuit, current: 16, power: 3000, priority: 0, minCurrent: 0}
+
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 0.0, circuit.ValidateCurrentWithPriority(low, low.current, 0))
+		assert.Equal(t, 16.0, circuit.ValidateCurrentWithPriority(high, high.current, 24))
+
+		high.current = 16
+
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+
+		low.current = 0
+
+		require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 24.0, circuit.ValidateCurrentWithPriority(high, high.current, 24))
+	})
 }
 
 func TestCircuitPriorityCurrentParentLimit(t *testing.T) {
@@ -304,8 +339,8 @@ func TestCircuitPriorityCurrentParentLimit(t *testing.T) {
 	require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
 
 	assert.Equal(t, 16.0, child.ValidateCurrentWithPriority(high, high.current, 24))
+	assert.Equal(t, 8.0, child.ValidateCurrentWithPriority(low, low.current, 8))
 
-	high.current = 24
 	low.current = 8
 
 	require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
