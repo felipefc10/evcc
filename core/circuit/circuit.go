@@ -270,6 +270,24 @@ type loadInfo struct {
 	target   bool
 }
 
+func loadTitle(load api.CircuitLoad) string {
+	type titled interface {
+		GetTitle() string
+	}
+
+	if lp, ok := load.(titled); ok {
+		if title := lp.GetTitle(); title != "" {
+			return title
+		}
+	}
+
+	if load != nil {
+		return fmt.Sprintf("%p", load)
+	}
+
+	return "unknown"
+}
+
 func loadPriority(load api.CircuitLoad) int {
 	type priorityProvider interface {
 		EffectivePriority() int
@@ -417,6 +435,7 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 				minRequired = 0
 			}
 
+			available := remaining
 			alloc := math.Min(desired, remaining)
 			if desired > 0 && alloc < minRequired {
 				alloc = math.Min(math.Max(minRequired, 0), remaining)
@@ -428,6 +447,11 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 
 			c.powerAlloc[e.load] = alloc
 			remaining -= alloc
+
+			c.log.DEBUG.Printf(
+				"priority power alloc: %s (prio %d) -> %.0fW (desired %.0fW, min %.0fW, avail %.0fW)",
+				loadTitle(e.load), e.priority, alloc, desired, minRequired, available,
+			)
 
 			if remaining < 0 {
 				remaining = 0
@@ -552,6 +576,7 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 				minRequired = 0
 			}
 
+			available := remaining
 			alloc := math.Min(desired, remaining)
 			if desired > 0 && alloc < minRequired {
 				alloc = math.Min(math.Max(minRequired, 0), remaining)
@@ -563,6 +588,11 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 
 			c.currentAlloc[e.load] = alloc
 			remaining -= alloc
+
+			c.log.DEBUG.Printf(
+				"priority current alloc: %s (prio %d) -> %.3gA (desired %.3gA, min %.3gA, avail %.3gA)",
+				loadTitle(e.load), e.priority, alloc, desired, minRequired, available,
+			)
 
 			if remaining < 0 {
 				remaining = 0
