@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -306,9 +307,44 @@ func loadMinCurrent(load api.CircuitLoad) float64 {
 	return 0
 }
 
-func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float64, bool) {
+func loadTitle(load api.CircuitLoad) string {
+	type titler interface {
+		GetTitle() string
+	}
+
+	if t, ok := load.(titler); ok {
+		return t.GetTitle()
+	}
+
+	if circ := load.GetCircuit(); circ != nil {
+		return circ.GetTitle()
+	}
+
+	return fmt.Sprintf("%T", load)
+}
+
+func (c *Circuit) logPriorityAllocation(kind string, limit float64, entries []loadInfo, alloc map[api.CircuitLoad]float64) {
+	if len(entries) == 0 {
+		return
+	}
+
+	parts := make([]string, 0, len(entries))
+	for _, e := range entries {
+		allocated := alloc[e.load]
+		tag := ""
+		if e.target {
+			tag = "*"
+		}
+
+		parts = append(parts, fmt.Sprintf("%s%s prio %d: %.0f->%.0f", loadTitle(e.load), tag, e.priority, e.actual, allocated))
+	}
+
+	c.log.DEBUG.Printf("prioritize %s (%s max %.0f): %s", kind, c.title, limit, strings.Join(parts, ", "))
+}
+
+func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float64, bool, map[api.CircuitLoad]float64) {
 	if !c.controlsLoad(load) {
-		return new, false
+		return new, false, nil
 	}
 
 	if maxPower := c.GetMaxPower(); maxPower != 0 {
@@ -316,7 +352,7 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 		defer c.allocMu.Unlock()
 
 		if len(c.loads) == 0 {
-			return new, false
+			return new, false, nil
 		}
 
 		entries := make([]loadInfo, 0, len(c.loads))
@@ -435,16 +471,33 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 		}
 
 		if res, ok := c.powerAlloc[load]; ok {
-			return res, true
+			allocCopy := make(map[api.CircuitLoad]float64, len(c.powerAlloc))
+			for k, v := range c.powerAlloc {
+				allocCopy[k] = v
+			}
+
+			c.logPriorityAllocation("power", maxPower, entries, allocCopy)
+
+			safeHeadroom := maxPower - (childPower + directPower - old)
+			if safeHeadroom < 0 {
+				safeHeadroom = 0
+			}
+
+			safeLimit := math.Min(res, math.Max(0, old+safeHeadroom))
+			if safeLimit < res {
+				c.log.DEBUG.Printf("prioritize power: deferring %.0fW target for %s to %.0fW until lower priorities shed load", res, loadTitle(load), safeLimit)
+			}
+
+			return safeLimit, true, allocCopy
 		}
 	}
 
-	return new, false
+	return new, false, nil
 }
 
-func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (float64, bool) {
+func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (float64, bool, map[api.CircuitLoad]float64) {
 	if !c.controlsLoad(load) {
-		return new, false
+		return new, false, nil
 	}
 
 	if maxCurrent := c.GetMaxCurrent(); maxCurrent != 0 {
@@ -452,7 +505,7 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 		defer c.allocMu.Unlock()
 
 		if len(c.loads) == 0 {
-			return new, false
+			return new, false, nil
 		}
 
 		entries := make([]loadInfo, 0, len(c.loads))
@@ -570,11 +623,28 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 		}
 
 		if res, ok := c.currentAlloc[load]; ok {
-			return res, true
+			allocCopy := make(map[api.CircuitLoad]float64, len(c.currentAlloc))
+			for k, v := range c.currentAlloc {
+				allocCopy[k] = v
+			}
+
+			c.logPriorityAllocation("current", maxCurrent, entries, allocCopy)
+
+			safeHeadroom := maxCurrent - (childCurrent + directCurrent - old)
+			if safeHeadroom < 0 {
+				safeHeadroom = 0
+			}
+
+			safeLimit := math.Min(res, math.Max(0, old+safeHeadroom))
+			if safeLimit < res {
+				c.log.DEBUG.Printf("prioritize current: deferring %.1fA target for %s to %.1fA until lower priorities shed load", res, loadTitle(load), safeLimit)
+			}
+
+			return safeLimit, true, allocCopy
 		}
 	}
 
-	return new, false
+	return new, false, nil
 }
 
 func (c *Circuit) overloadOnError(t time.Time, val *float64) {
@@ -673,43 +743,53 @@ func (c *Circuit) GetMaxPhaseCurrent() float64 {
 }
 
 // ValidatePowerWithPriority validates power requests while considering load priorities
-func (c *Circuit) ValidatePowerWithPriority(load api.CircuitLoad, old, new float64) float64 {
-	res, ok := c.prioritizePower(load, old, new)
-	if !ok {
+func (c *Circuit) ValidatePowerWithPriority(load api.CircuitLoad, old, new float64) (float64, map[api.CircuitLoad]float64, bool) {
+	res, prioritized, alloc := c.prioritizePower(load, old, new)
+	if !prioritized {
 		res = c.applyPowerLimit(old, new)
 	}
 
 	if c.parent == nil {
-		return res
+		return res, alloc, prioritized
 	}
 
 	if pc, ok := c.parent.(interface {
-		ValidatePowerWithPriority(api.CircuitLoad, float64, float64) float64
+		ValidatePowerWithPriority(api.CircuitLoad, float64, float64) (float64, map[api.CircuitLoad]float64, bool)
 	}); ok {
-		return pc.ValidatePowerWithPriority(load, old, res)
+		parentRes, parentAlloc, parentPrioritized := pc.ValidatePowerWithPriority(load, old, res)
+		if parentPrioritized {
+			return parentRes, parentAlloc, true
+		}
+
+		return parentRes, alloc, prioritized
 	}
 
-	return c.parent.ValidatePower(old, res)
+	return c.parent.ValidatePower(old, res), alloc, prioritized
 }
 
 // ValidateCurrentWithPriority validates current requests while considering load priorities
-func (c *Circuit) ValidateCurrentWithPriority(load api.CircuitLoad, old, new float64) float64 {
-	res, ok := c.prioritizeCurrent(load, old, new)
-	if !ok {
+func (c *Circuit) ValidateCurrentWithPriority(load api.CircuitLoad, old, new float64) (float64, map[api.CircuitLoad]float64, bool) {
+	res, prioritized, alloc := c.prioritizeCurrent(load, old, new)
+	if !prioritized {
 		res = c.applyCurrentLimit(old, new)
 	}
 
 	if c.parent == nil {
-		return res
+		return res, alloc, prioritized
 	}
 
 	if pc, ok := c.parent.(interface {
-		ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) float64
+		ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) (float64, map[api.CircuitLoad]float64, bool)
 	}); ok {
-		return pc.ValidateCurrentWithPriority(load, old, res)
+		parentRes, parentAlloc, parentPrioritized := pc.ValidateCurrentWithPriority(load, old, res)
+		if parentPrioritized {
+			return parentRes, parentAlloc, true
+		}
+
+		return parentRes, alloc, prioritized
 	}
 
-	return c.parent.ValidateCurrent(old, res)
+	return c.parent.ValidateCurrent(old, res), alloc, prioritized
 }
 
 // ValidatePower validates power request
