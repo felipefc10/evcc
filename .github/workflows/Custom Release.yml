@@ -73,19 +73,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout add-on repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
         with:
-          repository: felipefc10/hassio-addon
+          repository: felipefc10/hassio-addon # Your Hass.io add-on repo fork
           token: ${{ secrets.GH_TOKEN }}
-          ref: ${{ github.ref_name }}
-          path: hassio
+          path: ./hassio
 
       - name: Update add-on version
         working-directory: hassio
         run: |
           version="${{ needs.prepare.outputs.version_tag }}"
           files=(
-            "evcc/config.yaml"
             "evcc-nightly/config.yaml"
           )
           updated=0
