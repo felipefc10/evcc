@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -306,6 +307,16 @@ func loadMinCurrent(load api.CircuitLoad) float64 {
 	return 0
 }
 
+func loadTitle(load api.CircuitLoad) string {
+	if td, ok := load.(api.TitleDescriber); ok {
+		if title := td.GetTitle(); title != "" {
+			return title
+		}
+	}
+
+	return fmt.Sprintf("%T", load)
+}
+
 func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float64, bool) {
 	if !c.controlsLoad(load) {
 		return new, false
@@ -386,6 +397,8 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 			remaining = 0
 		}
 
+		available := remaining
+
 		if c.powerAlloc == nil {
 			c.powerAlloc = make(map[api.CircuitLoad]float64, len(entries))
 		} else {
@@ -432,6 +445,14 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 			if remaining < 0 {
 				remaining = 0
 			}
+		}
+
+		if c.log != nil {
+			parts := make([]string, 0, len(entries))
+			for _, e := range entries {
+				parts = append(parts, fmt.Sprintf("%s(prio %d)=%.0fW", loadTitle(e.load), e.priority, c.powerAlloc[e.load]))
+			}
+			c.log.DEBUG.Printf("priority power alloc (%s): %s (available %.0fW, remaining %.0fW)", c.title, strings.Join(parts, ", "), available, remaining)
 		}
 
 		if res, ok := c.powerAlloc[load]; ok {
@@ -521,6 +542,8 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 			remaining = 0
 		}
 
+		available := remaining
+
 		if c.currentAlloc == nil {
 			c.currentAlloc = make(map[api.CircuitLoad]float64, len(entries))
 		} else {
@@ -567,6 +590,14 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 			if remaining < 0 {
 				remaining = 0
 			}
+		}
+
+		if c.log != nil {
+			parts := make([]string, 0, len(entries))
+			for _, e := range entries {
+				parts = append(parts, fmt.Sprintf("%s(prio %d)=%.3gA", loadTitle(e.load), e.priority, c.currentAlloc[e.load]))
+			}
+			c.log.DEBUG.Printf("priority current alloc (%s): %s (available %.3gA, remaining %.3gA)", c.title, strings.Join(parts, ", "), available, remaining)
 		}
 
 		if res, ok := c.currentAlloc[load]; ok {
