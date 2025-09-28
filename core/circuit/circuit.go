@@ -473,7 +473,7 @@ func (c *Circuit) prioritizePower(load api.CircuitLoad, old, new float64) (float
 				safeHeadroom = 0
 			}
 
-			safeLimit := math.Min(res, math.Max(0, old+safeHeadroom))
+			safeLimit := math.Min(res, math.Max(0, safeHeadroom))
 			if safeLimit < res {
 				c.log.DEBUG.Printf("prioritize power: deferring %.0fW target for %s to %.0fW until lower priorities shed load", res, loadTitle(load), safeLimit)
 			}
@@ -618,7 +618,7 @@ func (c *Circuit) prioritizeCurrent(load api.CircuitLoad, old, new float64) (flo
 				safeHeadroom = 0
 			}
 
-			safeLimit := math.Min(res, math.Max(0, old+safeHeadroom))
+			safeLimit := math.Min(res, math.Max(0, safeHeadroom))
 			if safeLimit < res {
 				c.log.DEBUG.Printf("prioritize current: deferring %.1fA target for %s to %.1fA until lower priorities shed load", res, loadTitle(load), safeLimit)
 			}
