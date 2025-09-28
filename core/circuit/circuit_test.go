@@ -203,6 +203,32 @@ func TestCircuitPriorityAllocation(t *testing.T) {
 
 		assert.Equal(t, 1500.0, parent.ValidatePowerWithPriority(low, low.power, 2500))
 	})
+
+	t.Run("child without local limit honors parent priority", func(t *testing.T) {
+		log := util.NewLogger("parent-prio-child")
+
+		parent, err := New(log, "parent", 0, 5000, nil, 0)
+		require.NoError(t, err)
+
+		child, err := New(log, "child", 0, 0, nil, 0)
+		require.NoError(t, err)
+
+		require.NoError(t, child.setParent(parent))
+
+		high := &stubLoad{circuit: child, power: 2500, current: 16, priority: 1}
+		low := &stubLoad{circuit: child, power: 2500, current: 16, priority: 0}
+
+		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 3500.0, child.ValidatePowerWithPriority(high, high.power, 3500))
+
+		high.power = 3500
+		low.power = 1500
+
+		require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
+
+		assert.Equal(t, 1500.0, child.ValidatePowerWithPriority(low, low.power, 2500))
+	})
 }
 
 func TestCircuitPriorityCurrent(t *testing.T) {
@@ -224,4 +250,30 @@ func TestCircuitPriorityCurrent(t *testing.T) {
 	require.NoError(t, circuit.Update([]api.CircuitLoad{high, low}))
 
 	assert.Equal(t, 12.0, circuit.ValidateCurrentWithPriority(low, low.current, 16))
+}
+
+func TestCircuitPriorityCurrentParentLimit(t *testing.T) {
+	log := util.NewLogger("parent-current")
+
+	parent, err := New(log, "parent", 32, 0, nil, 0)
+	require.NoError(t, err)
+
+	child, err := New(log, "child", 0, 0, nil, 0)
+	require.NoError(t, err)
+
+	require.NoError(t, child.setParent(parent))
+
+	high := &stubLoad{circuit: child, current: 16, power: 3000, priority: 1, minCurrent: 0}
+	low := &stubLoad{circuit: child, current: 16, power: 3000, priority: 0, minCurrent: 0}
+
+	require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
+
+	assert.Equal(t, 24.0, child.ValidateCurrentWithPriority(high, high.current, 24))
+
+	high.current = 24
+	low.current = 8
+
+	require.NoError(t, parent.Update([]api.CircuitLoad{high, low}))
+
+	assert.Equal(t, 8.0, child.ValidateCurrentWithPriority(low, low.current, 16))
 }

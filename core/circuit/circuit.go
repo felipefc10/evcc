@@ -674,44 +674,67 @@ func (c *Circuit) GetMaxPhaseCurrent() float64 {
 
 // ValidatePowerWithPriority validates power requests while considering load priorities
 func (c *Circuit) ValidatePowerWithPriority(load api.CircuitLoad, old, new float64) float64 {
-	if res, ok := c.prioritizePower(load, old, new); ok {
-		if c.parent == nil {
-			return res
-		}
-
-		if pc, ok := c.parent.(interface {
-			ValidatePowerWithPriority(api.CircuitLoad, float64, float64) float64
-		}); ok {
-			return pc.ValidatePowerWithPriority(load, old, res)
-		}
-
-		return c.parent.ValidatePower(old, res)
+	res, ok := c.prioritizePower(load, old, new)
+	if !ok {
+		res = c.applyPowerLimit(old, new)
 	}
 
-	return c.ValidatePower(old, new)
+	if c.parent == nil {
+		return res
+	}
+
+	if pc, ok := c.parent.(interface {
+		ValidatePowerWithPriority(api.CircuitLoad, float64, float64) float64
+	}); ok {
+		return pc.ValidatePowerWithPriority(load, old, res)
+	}
+
+	return c.parent.ValidatePower(old, res)
 }
 
 // ValidateCurrentWithPriority validates current requests while considering load priorities
 func (c *Circuit) ValidateCurrentWithPriority(load api.CircuitLoad, old, new float64) float64 {
-	if res, ok := c.prioritizeCurrent(load, old, new); ok {
-		if c.parent == nil {
-			return res
-		}
-
-		if pc, ok := c.parent.(interface {
-			ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) float64
-		}); ok {
-			return pc.ValidateCurrentWithPriority(load, old, res)
-		}
-
-		return c.parent.ValidateCurrent(old, res)
+	res, ok := c.prioritizeCurrent(load, old, new)
+	if !ok {
+		res = c.applyCurrentLimit(old, new)
 	}
 
-	return c.ValidateCurrent(old, new)
+	if c.parent == nil {
+		return res
+	}
+
+	if pc, ok := c.parent.(interface {
+		ValidateCurrentWithPriority(api.CircuitLoad, float64, float64) float64
+	}); ok {
+		return pc.ValidateCurrentWithPriority(load, old, res)
+	}
+
+	return c.parent.ValidateCurrent(old, res)
 }
 
 // ValidatePower validates power request
 func (c *Circuit) ValidatePower(old, new float64) float64 {
+	new = c.applyPowerLimit(old, new)
+
+	if c.parent == nil {
+		return new
+	}
+
+	return c.parent.ValidatePower(old, new)
+}
+
+// ValidateCurrent validates current request
+func (c *Circuit) ValidateCurrent(old, new float64) float64 {
+	new = c.applyCurrentLimit(old, new)
+
+	if c.parent == nil {
+		return new
+	}
+
+	return c.parent.ValidateCurrent(old, new)
+}
+
+func (c *Circuit) applyPowerLimit(old, new float64) float64 {
 	if maxPower := c.GetMaxPower(); maxPower != 0 {
 		delta := max(0, new-old)
 		potential := maxPower - c.power
@@ -725,15 +748,10 @@ func (c *Circuit) ValidatePower(old, new float64) float64 {
 		}
 	}
 
-	if c.parent == nil {
-		return new
-	}
-
-	return c.parent.ValidatePower(old, new)
+	return new
 }
 
-// ValidateCurrent validates current request
-func (c *Circuit) ValidateCurrent(old, new float64) float64 {
+func (c *Circuit) applyCurrentLimit(old, new float64) float64 {
 	if maxCurrent := c.GetMaxCurrent(); maxCurrent != 0 {
 		delta := max(0, new-old)
 		potential := maxCurrent - c.current
@@ -747,9 +765,5 @@ func (c *Circuit) ValidateCurrent(old, new float64) float64 {
 		}
 	}
 
-	if c.parent == nil {
-		return new
-	}
-
-	return c.parent.ValidateCurrent(old, new)
+	return new
 }
