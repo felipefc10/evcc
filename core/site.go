@@ -21,7 +21,6 @@ import (
 	"github.com/evcc-io/evcc/core/loadpoint"
 	"github.com/evcc-io/evcc/core/metrics"
 	"github.com/evcc-io/evcc/core/planner"
-	"github.com/evcc-io/evcc/core/prioritizer"
 	"github.com/evcc-io/evcc/core/session"
 	"github.com/evcc-io/evcc/core/site"
 	"github.com/evcc-io/evcc/core/soc"
@@ -103,7 +102,6 @@ type Site struct {
 	loadpoints  []*Loadpoint             // Loadpoints
 	tariffs     *tariff.Tariffs          // Tariffs
 	coordinator *coordinator.Coordinator // Vehicles
-	prioritizer *prioritizer.Prioritizer // Power budgets
 	stats       *Stats                   // Stats
 	fcstEnergy  *meterEnergy
 	pvEnergy    map[string]*meterEnergy
@@ -160,7 +158,6 @@ func (site *Site) Boot(log *util.Logger, loadpoints []*Loadpoint, tariffs *tarif
 	site.coordinator = coordinator.New(log, config.Instances(handler.Devices()))
 	handler.Subscribe(site.updateVehicles)
 
-	site.prioritizer = prioritizer.New(log)
 	site.stats = NewStats()
 
 	// upload telemetry on shutdown
@@ -912,7 +909,6 @@ func (site *Site) updateLoadpoints(rates api.Rates) float64 {
 	for _, lp := range site.loadpoints {
 		wg.Go(func() {
 			power := lp.UpdateChargePowerAndCurrents()
-			site.prioritizer.UpdateChargePowerFlexibility(lp, rates)
 
 			mu.Lock()
 			sum += power
