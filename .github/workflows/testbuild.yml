@@ -1,4 +1,4 @@
-name: Nightly Build
+name: Test Build
 
 on:
   schedule: # runs on the repository's default branch
