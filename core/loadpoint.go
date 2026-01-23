@@ -1483,6 +1483,13 @@ func (lp *Loadpoint) applyAllocatedPower(mode api.ChargeMode, sitePower, allocat
 	if lp.hasPhaseSwitching() && lp.phaseSwitchCompleted() {
 		// Pseudo SitePower for pvScalePhases to assume available = allocatedPower
 		pseudoSitePower := lp.chargePower - allocatedPower
+
+		// If allocated power is zero (no budget), use actual site power to determine
+		// if we need to scale down (e.g. during hysteresis or disable delay)
+		if allocatedPower == 0 && sitePower > 0 {
+			pseudoSitePower = sitePower
+		}
+
 		scaledTo = lp.pvScalePhases(pseudoSitePower, minCurrent, maxCurrent)
 	}
 
