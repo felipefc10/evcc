@@ -195,16 +195,14 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 		// Try Solar First
 		if solarBudget >= needed {
 			solarBudget -= needed
+			gridBudget -= needed // reducing solar surplus reduces net grid export, consuming grid budget
 			n.allocation += needed
-			// If we used solar, we effectively didn't use grid for this amount.
-			// But GridBudget represents "Available Import". Solar usage doesn't reduce Import capacity.
-			// So GridBudget remains same?
-			// Correct.
 		} else {
 			// Take what we can from Solar
 			taken := max(0, solarBudget)
 			n.allocation += taken
 			solarBudget = 0
+			gridBudget -= taken // reducing solar surplus reduces net grid export, consuming grid budget
 			needed -= taken
 
 			// Take rest from Grid (if allowed)

@@ -218,3 +218,59 @@ func TestDistributePower_GridLimit_Priority(t *testing.T) {
 	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "High Prio LP2 should get full demand")
 	assert.InDelta(t, 1320.0, allocs[lp1], 1.0, "Low Prio LP1 should get remaining")
 }
+
+func TestDistributePower_DoubleCounting(t *testing.T) {
+	// Setup Loadpoints
+	lp1 := &Loadpoint{
+		title:      "Now",
+		status:     api.StatusC,
+		mode:       api.ModeNow, // Wants Max (3.68kW)
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1,
+	}
+
+	lp2 := &Loadpoint{
+		title:      "Now 2",
+		status:     api.StatusC,
+		mode:       api.ModeNow, // Wants Max (3.68kW)
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1,
+	}
+
+	// Scenario: Max Import = 5000W. PV = 5000W. Net Grid = -5000W (Export).
+	// GridBudget (Capacity) = Max - Grid = 5000 - (-5000) = 10000W.
+	// SolarBudget = 5000W.
+
+	// Total Available Capacity = 10000W (5kW from PV + 5kW from Grid).
+	// If we don't fix double counting, we might think we have 10kW Grid + 5kW Solar = 15kW?
+	// No, GridBudget implicitly includes Solar Surplus capacity.
+
+	// Demand: LP1 (3.68kW) + LP2 (3.68kW) = 7.36kW.
+	// This fits easily in 10kW.
+
+	// Let's constrain it. Max Import = 1000W. PV = 5000W. Grid = -5000W.
+	// GridBudget = 1000 - (-5000) = 6000W.
+	// SolarBudget = 5000W.
+	// Total Capacity = 6000W.
+
+	// Demand: 7.36kW.
+	// Expectation: Capped at 6000W.
+
+	circ, _ := circuit.New(util.NewLogger("foo"), "main", 0, 1000, nil, 0) // Max Power 1kW
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1, lp2},
+		gridVoltages: []float64{230, 230, 230},
+		Voltage:      230,
+		circuit:      circ,
+		gridPower:    -5000, // Exporting 5kW
+	}
+
+	allocs := site.distributePower(-5000) // Solar Surplus 5kW
+
+	total := allocs[lp1] + allocs[lp2]
+	assert.InDelta(t, 6000.0, total, 1.0, "Total should be capped at Max Import + PV")
+}
