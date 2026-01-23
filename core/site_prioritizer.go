@@ -2,6 +2,7 @@ package core
 
 import (
 	"sort"
+	"time"
 
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/loadpoint"
@@ -67,7 +68,7 @@ func (site *Site) effectiveVoltage(lp loadpoint.API) float64 {
 }
 
 // distributePower distributes the available power among loadpoints based on priority
-func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
+func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rates) map[loadpoint.API]float64 {
 	allocations := make(map[loadpoint.API]float64)
 	var nodes []*loadpointNode
 
@@ -161,14 +162,58 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 			node.allowGrid = true
 		} else if mode == api.ModeMinPV {
 			// MinPV: Base is Min. Uses Grid for Base. Optional Uses Solar.
-			node.basePower = minP
-			node.minPower = minP
-			node.allowGrid = true // For the base part
+			// Smart Cost or Feedin Check
+			if lp.GetSmartCostLimit() != nil || lp.GetSmartFeedInPriorityLimit() != nil {
+				// We don't have access to lp.smartLimitActive logic easily without duplication.
+				// However, Loadpoint has public methods to check.
+				// But site.go calls lp.Update with rates later.
+				// We need to check here.
+				// Duplicating check logic:
+				smartCost := lp.GetSmartCostLimit() != nil && consumption != nil && func() bool {
+					rate, err := consumption.At(time.Now())
+					return err == nil && rate.Value <= *lp.GetSmartCostLimit()
+				}()
+
+				smartFeedin := lp.GetSmartFeedInPriorityLimit() != nil && feedin != nil && func() bool {
+					rate, err := feedin.At(time.Now())
+					return err == nil && rate.Value >= *lp.GetSmartFeedInPriorityLimit()
+				}()
+
+				if smartCost || smartFeedin {
+					node.basePower = maxP // Treat as Mode Now
+					node.allowGrid = true
+				} else {
+					node.basePower = minP
+					node.minPower = minP
+					node.allowGrid = true
+				}
+			} else {
+				node.basePower = minP
+				node.minPower = minP
+				node.allowGrid = true
+			}
 		} else {
 			// PV: Needs Min to start. Uses Solar.
-			node.basePower = 0
-			node.minPower = minP
-			node.allowGrid = false
+			// Smart Cost or Feedin Check
+			smartCost := lp.GetSmartCostLimit() != nil && consumption != nil && func() bool {
+				rate, err := consumption.At(time.Now())
+				return err == nil && rate.Value <= *lp.GetSmartCostLimit()
+			}()
+
+			smartFeedin := lp.GetSmartFeedInPriorityLimit() != nil && feedin != nil && func() bool {
+				rate, err := feedin.At(time.Now())
+				return err == nil && rate.Value >= *lp.GetSmartFeedInPriorityLimit()
+			}()
+
+			if smartCost || smartFeedin {
+				node.basePower = maxP // Treat as Mode Now
+				node.minPower = minP
+				node.allowGrid = true
+			} else {
+				node.basePower = 0
+				node.minPower = minP
+				node.allowGrid = false
+			}
 		}
 
 		nodes = append(nodes, node)

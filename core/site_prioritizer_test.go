@@ -2,6 +2,7 @@ package core
 
 import (
 	"testing"
+	"time"
 
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/circuit"
@@ -44,7 +45,7 @@ func TestDistributePower(t *testing.T) {
 	// LP1 gets rest (11320W). Max (16A*230*3 = 11040W).
 	// LP1 clamped to Max.
 	// LP1 gets 11040W.
-	allocs := site.distributePower(-15000)
+	allocs := site.distributePower(-15000, nil, nil)
 
 	// Verify LP2 (High Prio)
 	// 3680W / 230V = 16A.
@@ -62,7 +63,7 @@ func TestDistributePower(t *testing.T) {
 	// Remaining: 320W.
 	// LP1 needs 4.1kW. 320 < 4100.
 	// LP1 gets 0.
-	allocs = site.distributePower(-4000)
+	allocs = site.distributePower(-4000, nil, nil)
 	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "LP2 should get max")
 	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "LP1 should get 0")
 
@@ -82,7 +83,7 @@ func TestDistributePower(t *testing.T) {
 	// LP1 takes 2.5kW? No, < Min.
 	// Post-check: LP1 < Min -> 0.
 	// Result: LP2=2.5kW, LP1=0.
-	allocs = site.distributePower(-5000)
+	allocs = site.distributePower(-5000, nil, nil)
 	assert.InDelta(t, 2500.0, allocs[lp2], 1.0, "LP2 gets split share")
 	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "LP1 gets 0")
 
@@ -94,7 +95,7 @@ func TestDistributePower(t *testing.T) {
 	// LP2 > 1.4 -> 2.1kW.
 	// LP1 < 4.1 -> 0.
 	// Result: LP2=2.1kW. LP1=0.
-	allocs = site.distributePower(-4200)
+	allocs = site.distributePower(-4200, nil, nil)
 	assert.InDelta(t, 2100.0, allocs[lp2], 1.0, "LP2 gets split")
 	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "LP1 gets 0")
 
@@ -106,7 +107,7 @@ func TestDistributePower(t *testing.T) {
 	// Distribute 0.
 	// LP1 gets Base (4.1kW).
 	// LP2 (PV) gets 0.
-	allocs = site.distributePower(-2000)
+	allocs = site.distributePower(-2000, nil, nil)
 	assert.InDelta(t, 4140.0, allocs[lp1], 1.0, "LP1 MinPV gets min (6A)") // 6*230*3 = 4140
 	assert.InDelta(t, 0.0, allocs[lp2], 1.0, "LP2 gets 0")
 }
@@ -134,7 +135,7 @@ func TestDistributePower_1pGrid(t *testing.T) {
 	// Max power = 16 * 230 = 3680W.
 	// Alloc = 3000W.
 
-	allocs := site.distributePower(-3000)
+	allocs := site.distributePower(-3000, nil, nil)
 
 	// We expect full utilization of 3000W
 	assert.InDelta(t, 3000.0, allocs[lp1], 1.0, "Should allocate full 3000W on 1p grid")
@@ -171,7 +172,7 @@ func TestDistributePower_GridLimit(t *testing.T) {
 		circuit:      circ,
 	}
 
-	allocs := site.distributePower(0) // 0 Solar Surplus
+	allocs := site.distributePower(0, nil, nil) // 0 Solar Surplus
 
 	// Total should be ~5000
 	assert.InDelta(t, 5000.0, allocs[lp1] + allocs[lp2], 100.0, "Total should equal grid limit")
@@ -213,7 +214,7 @@ func TestDistributePower_GridLimit_Priority(t *testing.T) {
 		circuit:      circ,
 	}
 
-	allocs := site.distributePower(0)
+	allocs := site.distributePower(0, nil, nil)
 
 	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "High Prio LP2 should get full demand")
 	assert.InDelta(t, 1320.0, allocs[lp1], 1.0, "Low Prio LP1 should get remaining")
@@ -269,8 +270,41 @@ func TestDistributePower_DoubleCounting(t *testing.T) {
 		gridPower:    -5000, // Exporting 5kW
 	}
 
-	allocs := site.distributePower(-5000) // Solar Surplus 5kW
+	allocs := site.distributePower(-5000, nil, nil) // Solar Surplus 5kW
 
 	total := allocs[lp1] + allocs[lp2]
 	assert.InDelta(t, 6000.0, total, 1.0, "Total should be capped at Max Import + PV")
+}
+
+func TestDistributePower_SmartCost(t *testing.T) {
+	// Scenario: Mode PV. Solar = 0. Grid Price Cheap.
+	// Expectation: Should use Grid Power.
+
+	limit := 0.20
+	lp1 := &Loadpoint{
+		status:         api.StatusC,
+		mode:           api.ModePV,
+		priority:       1,
+		minCurrent:     6,
+		maxCurrent:     16,
+		phases:         1,
+		smartCostLimit: &limit, // Limit 0.20
+	}
+
+	rates := api.Rates{
+		{Start: time.Now(), End: time.Now().Add(time.Hour), Value: 0.10}, // Cheap
+	}
+
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1},
+		gridVoltages: []float64{230, 230, 230},
+		Voltage:      230,
+	}
+
+	// Pass rates. Logic should detect rate <= limit and enable grid.
+	allocs := site.distributePower(0, rates, nil)
+
+	// Expectation: LP1 treated as Mode Now -> Base Power = Max.
+	// Max Power = 16A * 230V = 3680W.
+	assert.InDelta(t, 3680.0, allocs[lp1], 1.0, "Should charge at max power due to cheap grid")
 }

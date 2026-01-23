@@ -979,7 +979,7 @@ func (site *Site) update() {
 		greenShareLoadpoints := site.greenShare(nonChargePower, nonChargePower+totalChargePower)
 
 		// Distribute Power
-		allocations := site.distributePower(sitePower)
+		allocations := site.distributePower(sitePower, consumption, feedin)
 
 		for _, lp := range site.loadpoints {
 			lp.Update(
