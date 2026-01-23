@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/evcc-io/evcc/api"
+	"github.com/evcc-io/evcc/core/circuit"
+	"github.com/evcc-io/evcc/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -99,10 +101,8 @@ func TestDistributePower(t *testing.T) {
 	// Case 5: MinPV.
 	lp1.mode = api.ModeMinPV // 3p. Min 4.1kW.
 	// Surplus 2kW.
-	// LP1 MinPV: Base 4.1kW reserved.
-	// Budget = 2kW - 4.1kW = -2.1kW.
-	// Distribute 0.
-	// LP1 gets Base (4.1kW).
+	// LP1 MinPV: Base 4.1kW reserved (from Grid/Solar).
+	// LP1 will use 4.1kW (Base). 2kW from Solar, 2.1kW from Grid.
 	// LP2 (PV) gets 0.
 	allocs = site.distributePower(-2000)
 	assert.InDelta(t, 4140.0, allocs[lp1], 1.0, "LP1 MinPV gets min (6A)") // 6*230*3 = 4140
@@ -136,4 +136,74 @@ func TestDistributePower_1pGrid(t *testing.T) {
 
 	// We expect full utilization of 3000W
 	assert.InDelta(t, 3000.0, allocs[lp1], 1.0, "Should allocate full 3000W on 1p grid")
+}
+
+func TestDistributePower_GridLimit(t *testing.T) {
+	// Setup Loadpoints
+	lp1 := &Loadpoint{
+		title:      "Now",
+		status:     api.StatusC,
+		mode:       api.ModeNow, // Wants Max (3.6kW) from Grid
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1,
+	}
+
+	lp2 := &Loadpoint{
+		title:      "MinPV",
+		status:     api.StatusC,
+		mode:       api.ModeMinPV, // Wants Min (3.6kW) from Grid
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1,
+	}
+
+	// Site with Circuit Limit
+	circ, _ := circuit.New(util.NewLogger("foo"), "main", 0, 5000, nil, 0) // Max Power 5kW
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1, lp2},
+		gridVoltages: []float64{230, 230, 230},
+		Voltage:      230,
+		circuit:      circ,
+	}
+
+	// Scenario: No Solar. Grid Limit 5kW.
+	// LP1 (Now) wants 3.68kW.
+	// LP2 (MinPV) wants 3.68kW (Base 1.38kW + Optional).
+	// Total Max Demand = 7.36kW.
+	// Available Grid = 5kW.
+
+	// Expectation:
+	// Both have equal priority.
+	// Both have "Base Power".
+	// LP1 Base = 3.68kW (since Mode Now implies full speed).
+	// LP2 Base = 1.38kW (MinPV min).
+	// Total Base = 5.06kW > 5kW.
+	// They must share the 5kW.
+	// Base Allocation Phase:
+	// Total Needed = 5.06kW.
+	// Grid Budget = 5kW.
+	// It should probably fill greedily or split?
+	// Current logic: simple loop.
+	// LP1 needs 3.68. Takes 3.68. Grid Left = 1.32.
+	// LP2 needs 1.38. Takes 1.32. Grid Left = 0.
+
+	allocs := site.distributePower(0) // 0 Solar Surplus
+
+	// Check results
+	t.Logf("LP1: %.0f, LP2: %.0f", allocs[lp1], allocs[lp2])
+
+	// Total should be ~5000
+	assert.InDelta(t, 5000.0, allocs[lp1] + allocs[lp2], 100.0, "Total should equal grid limit")
+
+	// LP1 should get at least its share?
+	// The simple iteration logic might favor LP1 if it comes first in list.
+	// But priorities are equal. Sort is stable?
+	// Ideally, they should split 2.5kW each.
+	// But LP2 Base is only 1.38kW.
+	// So LP2 gets 1.38kW? LP1 gets rest (3.62kW)?
+	// Or does Mode Now imply strict requirement?
+	// The current logic sets Base = Max for Mode Now.
 }

@@ -18,6 +18,9 @@ type loadpointNode struct {
 	minPower  float64 // Minimum power to receive ANY optional allocation
 	maxPower  float64 // Maximum total power
 
+	// Permissions
+	allowGrid bool // Can this node use grid power?
+
 	// Output
 	allocation float64
 }
@@ -68,11 +71,47 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 	allocations := make(map[loadpoint.API]float64)
 	var nodes []*loadpointNode
 
-	// 1. Calculate Budget
-	// sitePower is net export (surplus).
+	// 1. Determine Budgets
+	// Solar Budget: Available surplus (Export).
 	// We want to distribute (Surplus + CurrentConsumption of controlled loadpoints).
-	budget := -sitePower
+	solarBudget := -sitePower
 
+	// Grid Budget: Available grid capacity.
+	// This requires knowing the Site's Max Power limit (if any) and current consumption.
+	// If no limit is set, budget is effectively infinite (physically limited by fuse, handled by circuit but here we assume high).
+	var gridBudget float64 = 1e6 // Default infinite
+
+	if site.circuit != nil {
+		if maxP := site.circuit.GetMaxPower(); maxP > 0 {
+			// Remaining Grid = Max - CurrentUsage.
+			// CurrentUsage includes Site consumption (which is SitePower if positive).
+			// If SitePower is negative (Export), Site Consumption is covered by PV.
+			// Actually, `site.circuit.GetChargePower()` returns total loadpoint power?
+			// We need the *Grid Import*.
+			// Grid Power (site.gridPower) is Import(+)/Export(-).
+			// If Importing, Remaining = Max - Import.
+			// If Exporting, Remaining = Max (full import capability available).
+
+			// We need to add back the *current loadpoint consumption* to re-distribute it.
+			// But careful: site.gridPower *already includes* loadpoint consumption.
+			// So `Remaining = Max - site.gridPower`.
+
+			// Example: Max 10kW. Import 2kW (EVs consuming 2kW).
+			// Remaining = 10 - 2 = 8kW.
+			// Total Grid Budget available for EVs = 8kW (new) + 2kW (existing) = 10kW.
+			// Wait, if base load is 0kW.
+
+			// Let's use `gridPower`.
+			// `availableGrid` = `maxP - site.gridPower`.
+			// We want to re-distribute.
+			// So we add back current LP consumption *that is coming from grid*.
+			// That's hard to distinguish.
+			// Easier: `budget = available + usage`.
+			gridBudget = maxP - site.gridPower
+		}
+	}
+
+	// Add current consumption back to budgets
 	for _, lp := range site.loadpoints {
 		status := lp.GetStatus()
 		mode := lp.GetMode()
@@ -83,15 +122,13 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 			continue
 		}
 
-		// Ignore Now (handled by default Max in update loop)
-		if mode == api.ModeNow {
-			allocations[lp] = lp.GetMaxCurrent()
-			continue
-		}
+		chargePower := lp.GetChargePower()
+		solarBudget += chargePower
 
-		// PV / MinPV
-		// Add current consumption back to budget
-		budget += lp.GetChargePower()
+		// If limit is active, add charge power to grid budget too (as it frees up capacity if we stop charging)
+		if gridBudget < 1e6 {
+			gridBudget += chargePower
+		}
 
 		phases := lp.ActivePhases()
 		if phases == 0 {
@@ -117,22 +154,24 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 			maxPower: maxP,
 		}
 
-		if mode == api.ModeMinPV {
-			// MinPV: Always gets Min.
+		if mode == api.ModeNow {
+			// Mode Now: Wants Max. Uses Grid.
+			node.basePower = maxP // Aggressive base
+			node.minPower = minP
+			node.allowGrid = true
+		} else if mode == api.ModeMinPV {
+			// MinPV: Base is Min. Uses Grid for Base. Optional Uses Solar.
 			node.basePower = minP
-			node.minPower = 0 // Any extra is fine
+			node.minPower = minP
+			node.allowGrid = true // For the base part
 		} else {
-			// PV: Needs Min to start
+			// PV: Needs Min to start. Uses Solar.
 			node.basePower = 0
 			node.minPower = minP
+			node.allowGrid = false
 		}
 
 		nodes = append(nodes, node)
-	}
-
-	// 2. Deduct Base Power (MinPV guarantees)
-	for _, n := range nodes {
-		budget -= n.basePower
 	}
 
 	// 3. Group and Sort
@@ -140,14 +179,54 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 		return nodes[i].priority > nodes[j].priority
 	})
 
-	// 4. Distribute Remaining Budget
-	remainingBudget := max(0, budget)
+	// 4. Distribute
 
-	// Process priority groups
+	// We need to distribute carefully.
+	// Step A: Fulfill "Base Power" (Guaranteed).
+	// Base Power can come from Solar OR Grid (if allowed).
+	// Prioritize Solar for everyone to keep Grid usage low? Yes.
+
+	for _, n := range nodes {
+		needed := n.basePower
+		if needed == 0 {
+			continue
+		}
+
+		// Try Solar First
+		if solarBudget >= needed {
+			solarBudget -= needed
+			n.allocation += needed
+			// If we used solar, we effectively didn't use grid for this amount.
+			// But GridBudget represents "Available Import". Solar usage doesn't reduce Import capacity.
+			// So GridBudget remains same?
+			// Correct.
+		} else {
+			// Take what we can from Solar
+			taken := max(0, solarBudget)
+			n.allocation += taken
+			solarBudget = 0
+			needed -= taken
+
+			// Take rest from Grid (if allowed)
+			if n.allowGrid {
+				if gridBudget >= needed {
+					gridBudget -= needed
+					n.allocation += needed
+				} else {
+					// Grid saturated. Take what we can.
+					taken := max(0, gridBudget)
+					gridBudget = 0
+					n.allocation += taken
+				}
+			}
+		}
+	}
+
+	// Step B: Distribute Remaining Solar to Optional Demand (PV surplus)
+	// Iterate Priority Groups
 	if len(nodes) > 0 {
 		i := 0
 		for i < len(nodes) {
-			// Identify current priority group
 			prio := nodes[i].priority
 			j := i
 			for j < len(nodes) && nodes[j].priority == prio {
@@ -156,71 +235,67 @@ func (site *Site) distributePower(sitePower float64) map[loadpoint.API]float64 {
 			group := nodes[i:j]
 			i = j
 
-			// Distribute to this group
-			// Iterative approach to handle max limits
-			for remainingBudget > 0 {
-				// Count active nodes in this group (those that can take more power)
-				var active []*loadpointNode
-				for _, n := range group {
-					currentAlloc := n.basePower + n.allocation
-					if currentAlloc < n.maxPower {
-						active = append(active, n)
-					}
-				}
-
-				if len(active) == 0 {
-					break
-				}
-
-				share := remainingBudget / float64(len(active))
-				allocatedThisRound := 0.0
-
-				for _, n := range active {
-					wanted := n.maxPower - (n.basePower + n.allocation)
-					give := min(wanted, share)
-					n.allocation += give
-					allocatedThisRound += give
-				}
-
-				remainingBudget -= allocatedThisRound
-				if allocatedThisRound < 1.0 { // precision break
-					break
-				}
-			}
+			// Distribute Solar Budget to Group
+			distributeToGroup(group, &solarBudget, false)
 		}
 	}
 
-	// 5. Check Min Power Thresholds for PV mode
-	// If a PV node (basePower=0) didn't get enough optional allocation to meet minPower, revoke it.
-	// But wait, if we revoke, the power becomes available again!
-	// This requires a restart of distribution or a specific strategy.
-	// For "Equal Split", if split < min, nobody gets it?
-	// The iterative allocator above fills greedily.
-	// If we have A (min 4) and B (min 4). Budget 6.
-	// Split 3 each. Both < Min.
-	// Both should drop.
-	// But `allocation` field is updated.
-	// We need to verify valid state.
-
-	// Post-processing check
+	// 5. Check Min Power Thresholds for Pure PV
+	// If a PV node didn't get enough to start, revoke allocation.
 	for _, n := range nodes {
-		total := n.basePower + n.allocation
-		// If this is a purely optional node (basePower == 0) and total < minPower
-		if n.basePower == 0 && total < n.minPower {
-			// Revoke allocation
-			// budget += n.allocation // Logic to give back?
-			// For now, strict revocation without redistribution.
-			// Redistribution would require complex recursion.
-			// "Equal Split" implies if we can't split equally sufficient amount, we stop.
+		if !n.allowGrid && n.allocation < n.minPower {
+			// Return allocation to SolarBudget?
+			// Implementing simple revocation for now.
+			// Ideally, we loop until stable, but one pass is safer for convergence.
 			n.allocation = 0
 		}
 	}
 
 	// 6. Return Power (Watts)
 	for _, n := range nodes {
-		totalP := n.basePower + n.allocation
+		totalP := n.allocation
 		allocations[n.lp] = totalP
 	}
 
 	return allocations
+}
+
+func distributeToGroup(group []*loadpointNode, budget *float64, useGrid bool) {
+	remainingBudget := max(0, *budget)
+
+	for remainingBudget > 0 {
+		var active []*loadpointNode
+		for _, n := range group {
+			// If using grid, only allow grid-enabled nodes that haven't reached max
+			// If not using grid (solar), allow anyone who hasn't reached max
+			// Note: "Optional" demand for MinPV/Now is handled here too?
+			// For "Now", basePower == maxPower, so it won't be active here.
+			// For "MinPV", basePower = Min. It wants up to Max.
+			// For "PV", basePower = 0. Wants up to Max.
+
+			if n.allocation < n.maxPower {
+				active = append(active, n)
+			}
+		}
+
+		if len(active) == 0 {
+			break
+		}
+
+		share := remainingBudget / float64(len(active))
+		allocatedThisRound := 0.0
+
+		for _, n := range active {
+			wanted := n.maxPower - n.allocation
+			give := min(wanted, share)
+			n.allocation += give
+			allocatedThisRound += give
+		}
+
+		remainingBudget -= allocatedThisRound
+		if allocatedThisRound < 1.0 {
+			break
+		}
+	}
+	*budget = remainingBudget
 }
