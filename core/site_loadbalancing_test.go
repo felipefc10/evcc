@@ -1,0 +1,110 @@
+package core
+
+import (
+	"testing"
+
+	"github.com/evcc-io/evcc/api"
+	"github.com/stretchr/testify/assert"
+)
+
+func TestDistributePower(t *testing.T) {
+	// Setup Loadpoints
+	lp1 := &Loadpoint{
+		status:     api.StatusC,
+		mode:       api.ModePV,
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     3,
+	}
+	lp2 := &Loadpoint{
+		status:     api.StatusC,
+		mode:       api.ModePV,
+		priority:   2,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1,
+	}
+
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1, lp2},
+		gridVoltages: []float64{230, 230, 230},
+		Voltage:      230,
+	}
+
+	// Case 1: Enough for both (15kW)
+	// LP1 (3p) needs ~4.1kW min.
+	// LP2 (1p) needs ~1.4kW min.
+	// Surplus 15kW.
+	// Budget = 15kW + 0 (charge).
+	// Priority 2 (LP2) > Priority 1 (LP1).
+	// LP2 gets Max (16A * 230 = 3680W).
+	// LP1 gets rest (11320W). Max (16A*230*3 = 11040W).
+	// LP1 clamped to Max.
+	// LP1 gets 11040W.
+	allocs := site.distributePower(-15000)
+
+	// Verify LP2 (High Prio)
+	// 3680W / 230V = 16A.
+	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "LP2 should get max")
+
+	// Verify LP1 (Low Prio)
+	// 11040W / 690V = 16A.
+	assert.InDelta(t, 11040.0, allocs[lp1], 1.0, "LP1 should get max")
+
+	// Case 2: Not enough for both. Prio works.
+	// Surplus 4kW.
+	// LP2 (Prio 2, 1p) needs 1.4kW.
+	// LP1 (Prio 1, 3p) needs 4.1kW.
+	// LP2 gets Max (3.68kW).
+	// Remaining: 320W.
+	// LP1 needs 4.1kW. 320 < 4100.
+	// LP1 gets 0.
+	allocs = site.distributePower(-4000)
+	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "LP2 should get max")
+	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "LP1 should get 0")
+
+	// Case 3: Equal Priority. Split.
+	lp2.priority = 1
+	// Surplus 5kW.
+	// Both Prio 1.
+	// LP1 (3p) Needs 4.1kW. Max 11kW.
+	// LP2 (1p) Needs 1.4kW. Max 3.68kW.
+	// Split: 2.5kW each.
+	// LP2: 2.5kW > 1.4kW. Alloc = 2.5kW.
+	// LP1: 2.5kW < 4.1kW. Alloc = 0?
+	// With my logic:
+	// Group Demand check? No, iterative split.
+	// Share 2.5kW.
+	// LP2 takes 2.5kW.
+	// LP1 takes 2.5kW? No, < Min.
+	// Post-check: LP1 < Min -> 0.
+	// Result: LP2=2.5kW, LP1=0.
+	allocs = site.distributePower(-5000)
+	assert.InDelta(t, 2500.0, allocs[lp2], 1.0, "LP2 gets split share")
+	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "LP1 gets 0")
+
+	// Case 4: Min Start.
+	// Surplus 4.2kW.
+	// LP1 (3p) needs 4.1kW.
+	// LP2 (1p) needs 1.4kW.
+	// Split 2.1kW.
+	// LP2 > 1.4 -> 2.1kW.
+	// LP1 < 4.1 -> 0.
+	// Result: LP2=2.1kW. LP1=0.
+	allocs = site.distributePower(-4200)
+	assert.InDelta(t, 2100.0, allocs[lp2], 1.0, "LP2 gets split")
+	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "LP1 gets 0")
+
+	// Case 5: MinPV.
+	lp1.mode = api.ModeMinPV // 3p. Min 4.1kW.
+	// Surplus 2kW.
+	// LP1 MinPV: Base 4.1kW reserved.
+	// Budget = 2kW - 4.1kW = -2.1kW.
+	// Distribute 0.
+	// LP1 gets Base (4.1kW).
+	// LP2 (PV) gets 0.
+	allocs = site.distributePower(-2000)
+	assert.InDelta(t, 4140.0, allocs[lp1], 1.0, "LP1 MinPV gets min (6A)") // 6*230*3 = 4140
+	assert.InDelta(t, 0.0, allocs[lp2], 1.0, "LP2 gets 0")
+}

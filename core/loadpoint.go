@@ -1436,43 +1436,60 @@ func (lp *Loadpoint) boostPower(batteryBoostPower float64) float64 {
 	return res
 }
 
-// pvMaxCurrent calculates the maximum target current for PV mode
-func (lp *Loadpoint) pvMaxCurrent(mode api.ChargeMode, sitePower, batteryBoostPower float64, batteryBuffered, batteryStart bool) float64 {
+func (lp *Loadpoint) EffectiveVoltage(phases int) float64 {
+	// try to get actual voltages
+	if phaseMeter, ok := lp.chargeMeter.(api.PhaseVoltages); ok {
+		if u1, u2, u3, err := phaseMeter.Voltages(); err == nil {
+			v := []float64{u1, u2, u3}
+			if phases == 3 {
+				return v[0] + v[1] + v[2]
+			}
+			// For 1p/2p, assume balanced or use average
+			return (v[0]+v[1]+v[2]) / 3 * float64(phases)
+		}
+	}
+	return float64(phases) * Voltage
+}
+
+// applyAllocatedPower calculates the maximum target current based on allocated power
+func (lp *Loadpoint) applyAllocatedPower(mode api.ChargeMode, sitePower, allocatedPower, batteryBoostPower float64, batteryBuffered, batteryStart bool) float64 {
 	// read only once to simplify testing
 	minCurrent := lp.effectiveMinCurrent()
 	maxCurrent := lp.effectiveMaxCurrent()
 
-	// push demand to drain battery
-	sitePower -= lp.boostPower(batteryBoostPower)
+	// Battery Boost adds to Allocated Power
+	allocatedPower += lp.boostPower(batteryBoostPower)
 
 	// switch phases up/down
+	// Use allocatedPower as "available" for phase scaling
 	var scaledTo int
 	if lp.hasPhaseSwitching() && lp.phaseSwitchCompleted() {
-		scaledTo = lp.pvScalePhases(sitePower, minCurrent, maxCurrent)
+		// Pseudo SitePower for pvScalePhases to assume available = allocatedPower
+		pseudoSitePower := lp.chargePower - allocatedPower
+		scaledTo = lp.pvScalePhases(pseudoSitePower, minCurrent, maxCurrent)
 	}
 
-	// calculate target charge current from delta power and actual current
+	// calculate target charge current from allocated power
 	activePhases := lp.ActivePhases()
-	effectiveCurrent := lp.effectiveCurrent()
-	if scaledTo == 3 {
-		// if we did scale, adjust the effective current to the new phase count
-		effectiveCurrent /= float64(lp.maxActivePhases())
+	effectiveVoltage := lp.EffectiveVoltage(activePhases)
+
+	// If scaledTo > 0, we are switching. voltage changes.
+	if scaledTo > 0 {
+		activePhases = scaledTo
+		effectiveVoltage = lp.EffectiveVoltage(activePhases)
 	}
-	if lp.chargerHasFeature(api.IntegratedDevice) {
-		// for slow-acting heating devices, only take actually consumed power into account
-		effectiveCurrent = powerToCurrent(lp.chargePower, activePhases)
-	}
-	deltaCurrent := powerToCurrent(-sitePower, activePhases)
-	targetCurrent := max(effectiveCurrent+deltaCurrent, 0)
+
+	targetCurrent := allocatedPower / effectiveVoltage
 
 	// in MinPV mode or under special conditions return at least minCurrent
 	if battery := batteryStart || batteryBuffered && lp.charging(); (mode == api.ModeMinPV || battery) && targetCurrent < minCurrent {
-		lp.log.DEBUG.Printf("pv charge current: min %.3gA > %.3gA (%.0fW @ %dp, battery: %t)", minCurrent, targetCurrent, sitePower, activePhases, battery)
+		lp.log.DEBUG.Printf("pv charge current: min %.3gA > %.3gA (%.0fW @ %dp, battery: %t)", minCurrent, targetCurrent, allocatedPower, activePhases, battery)
 		return minCurrent
 	}
 
-	lp.log.DEBUG.Printf("pv charge current: %.3gA = %.3gA + %.3gA (%.0fW @ %dp)", targetCurrent, effectiveCurrent, deltaCurrent, sitePower, activePhases)
+	lp.log.DEBUG.Printf("pv charge current: %.3gA (%.0fW @ %dp)", targetCurrent, allocatedPower, activePhases)
 
+	// Thresholds Check (Using Global Site Power)
 	if mode == api.ModePV && lp.enabled && targetCurrent < minCurrent {
 		projectedSitePower := sitePower
 		if lp.hasPhaseSwitching() && !lp.phaseTimer.IsZero() {
@@ -1862,7 +1879,7 @@ func (lp *Loadpoint) phaseSwitchCompleted() bool {
 }
 
 // Update is the main control function. It reevaluates meters and charger state
-func (lp *Loadpoint) Update(sitePower, batteryBoostPower float64, consumption, feedin api.Rates, batteryBuffered, batteryStart bool, greenShare float64, effPrice, effCo2 *float64) {
+func (lp *Loadpoint) Update(sitePower, allocatedPower, batteryBoostPower float64, consumption, feedin api.Rates, batteryBuffered, batteryStart bool, greenShare float64, effPrice, effCo2 *float64) {
 	// smart cost
 	smartCostActive, smartCostNextStart := lp.checkSmartLimit(lp.GetSmartCostLimit(), consumption, true)
 	lp.publish(keys.SmartCostActive, smartCostActive)
@@ -2024,7 +2041,7 @@ func (lp *Loadpoint) Update(sitePower, batteryBoostPower float64, consumption, f
 			break
 		}
 
-		targetCurrent := lp.pvMaxCurrent(mode, sitePower, batteryBoostPower, batteryBuffered, batteryStart)
+		targetCurrent := lp.applyAllocatedPower(mode, sitePower, allocatedPower, batteryBoostPower, batteryBuffered, batteryStart)
 
 		if targetCurrent == 0 && lp.vehicleClimateActive() {
 			targetCurrent = lp.effectiveMinCurrent()

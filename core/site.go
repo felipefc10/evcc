@@ -45,7 +45,7 @@ const standbyPower = 10 // consider less than 10W as charger in standby
 // updater abstracts the Loadpoint implementation for testing
 type updater interface {
 	loadpoint.API
-	Update(sitePower, batteryBoostPower float64, consumption, feedin api.Rates, batteryBuffered, batteryStart bool, greenShare float64, effectivePrice, effectiveCo2 *float64)
+	Update(sitePower, allocatedPower, batteryBoostPower float64, consumption, feedin api.Rates, batteryBuffered, batteryStart bool, greenShare float64, effectivePrice, effectiveCo2 *float64)
 }
 
 // measurement is used as slice element for publishing structured data
@@ -113,6 +113,7 @@ type Site struct {
 
 	// cached state
 	gridPower                float64         // Grid power
+	gridVoltages             []float64       // Grid voltages
 	pvPower                  float64         // PV power
 	excessDCPower            float64         // PV excess DC charge power (hybrid only)
 	auxPower                 float64         // Aux power
@@ -759,6 +760,16 @@ func (site *Site) updateGridMeter() error {
 		}
 	}
 
+	// grid voltages
+	if phaseMeter, ok := site.gridMeter.(api.PhaseVoltages); ok {
+		if u1, u2, u3, err := phaseMeter.Voltages(); err == nil {
+			site.gridVoltages = []float64{u1, u2, u3}
+			site.log.DEBUG.Printf("grid voltages: %.3gV", site.gridVoltages)
+		} else {
+			site.log.ERROR.Printf("grid voltages: %v", err)
+		}
+	}
+
 	// grid energy (import)
 	if energyMeter, ok := site.gridMeter.(api.MeterEnergy); ok {
 		if f, err := energyMeter.TotalEnergy(); err == nil {
@@ -913,7 +924,7 @@ func (site *Site) updateLoadpoints(rates api.Rates) float64 {
 	return sum
 }
 
-func (site *Site) update(lp updater) {
+func (site *Site) update() {
 	site.log.DEBUG.Println("----")
 
 	// smart cost and battery mode handling
@@ -955,13 +966,7 @@ func (site *Site) update(lp updater) {
 		wg.Wait()
 	}
 
-	// prioritize if possible
-	var flexiblePower float64
-	if lp != nil && lp.GetMode() == api.ModePV {
-		flexiblePower = site.prioritizer.GetChargePowerFlexibility(lp)
-	}
-
-	if sitePower, batteryBuffered, batteryStart, err := site.sitePower(totalChargePower, flexiblePower); err == nil {
+	if sitePower, batteryBuffered, batteryStart, err := site.sitePower(totalChargePower, 0); err == nil {
 		// ignore negative pvPower values as that means it is not an energy source but consumption
 		homePower := site.gridPower + max(0, site.pvPower) + site.batteryPower - totalChargePower
 		homePower = max(homePower, 0)
@@ -977,10 +982,12 @@ func (site *Site) update(lp updater) {
 		greenShareHome := site.greenShare(0, homePower)
 		greenShareLoadpoints := site.greenShare(nonChargePower, nonChargePower+totalChargePower)
 
-		// TODO
-		if lp != nil {
+		// Distribute Power
+		allocations := site.distributePower(sitePower)
+
+		for _, lp := range site.loadpoints {
 			lp.Update(
-				sitePower, max(0, site.batteryPower), consumption, feedin, batteryBuffered, batteryStart,
+				sitePower, allocations[lp], max(0, site.batteryPower), consumption, feedin, batteryBuffered, batteryStart,
 				greenShareLoadpoints, site.effectivePrice(greenShareLoadpoints), site.effectiveCo2(greenShareLoadpoints),
 			)
 		}
@@ -1095,24 +1102,6 @@ func (site *Site) Prepare(valueChan chan<- util.Param, pushChan chan<- push.Even
 	}
 }
 
-// loopLoadpoints keeps iterating across loadpoints sending the next to the given channel
-func (site *Site) loopLoadpoints(next chan<- updater) {
-	var logOnce sync.Once
-
-	for {
-		if len(site.loadpoints) == 0 {
-			logOnce.Do(func() {
-				site.log.INFO.Println("no loadpoints configured, running in meter-only mode")
-			})
-			next <- nil
-		} else {
-			for _, lp := range site.loadpoints {
-				next <- lp
-			}
-		}
-	}
-}
-
 // Run is the main control loop. It reacts to trigger events by
 // updating measurements and executing control logic.
 func (site *Site) Run(stopC chan struct{}, interval time.Duration) {
@@ -1120,19 +1109,14 @@ func (site *Site) Run(stopC chan struct{}, interval time.Duration) {
 		site.log.INFO.Printf("interval <%.0fs can lead to unexpected behavior, see https://docs.evcc.io/docs/reference/configuration/interval", max.Seconds())
 	}
 
-	loadpointChan := make(chan updater)
-	if site.IsConfigured() {
-		go site.loopLoadpoints(loadpointChan)
-	}
-
-	site.update(<-loadpointChan) // start immediately
+	site.update() // start immediately
 
 	for tick := time.Tick(interval); ; {
 		select {
 		case <-tick:
-			site.update(<-loadpointChan)
-		case lp := <-site.lpUpdateChan:
-			site.update(lp)
+			site.update()
+		case <-site.lpUpdateChan:
+			site.update()
 		case <-stopC:
 			return
 		}
