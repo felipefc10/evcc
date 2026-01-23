@@ -1444,8 +1444,25 @@ func (lp *Loadpoint) EffectiveVoltage(phases int) float64 {
 			if phases == 3 {
 				return v[0] + v[1] + v[2]
 			}
-			// For 1p/2p, assume balanced or use average
-			return (v[0]+v[1]+v[2]) / 3 * float64(phases)
+
+			// For 1p/2p, ignore zero voltages to prevent low estimation
+			var sum float64
+			var count int
+			for _, val := range v {
+				if val > 10 {
+					sum += val
+					count++
+				}
+			}
+
+			var avgVoltage float64
+			if count > 0 {
+				avgVoltage = sum / float64(count)
+			} else {
+				avgVoltage = Voltage // fallback
+			}
+
+			return avgVoltage * float64(phases)
 		}
 	}
 	return float64(phases) * Voltage

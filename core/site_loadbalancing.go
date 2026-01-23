@@ -37,8 +37,22 @@ func (site *Site) effectiveVoltage(lp loadpoint.API) float64 {
 		v = site.gridVoltages
 	}
 
-	// Calculate average voltage per phase
-	avgVoltage := (v[0] + v[1] + v[2]) / 3
+	// Calculate average voltage per phase (ignoring zeros)
+	var sum float64
+	var count int
+	for _, val := range v {
+		if val > 10 { // ignore noise/off
+			sum += val
+			count++
+		}
+	}
+
+	var avgVoltage float64
+	if count > 0 {
+		avgVoltage = sum / float64(count)
+	} else {
+		avgVoltage = site.Voltage // fallback
+	}
 
 	// If 3-phase, use sum of all phases
 	if phases == 3 {

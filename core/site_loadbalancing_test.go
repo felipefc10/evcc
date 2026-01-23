@@ -108,3 +108,32 @@ func TestDistributePower(t *testing.T) {
 	assert.InDelta(t, 4140.0, allocs[lp1], 1.0, "LP1 MinPV gets min (6A)") // 6*230*3 = 4140
 	assert.InDelta(t, 0.0, allocs[lp2], 1.0, "LP2 gets 0")
 }
+
+func TestDistributePower_1pGrid(t *testing.T) {
+	// Setup Loadpoints
+	lp1 := &Loadpoint{
+		status:     api.StatusC,
+		mode:       api.ModePV,
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1,
+	}
+
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1},
+		gridVoltages: []float64{230, 0, 0}, // 1-phase grid
+		Voltage:      230,
+	}
+
+	// Surplus 3kW.
+	// LP1 (1p) needs 6A * 230V = 1380W.
+	// With correct logic (ignoring zeros), voltage = 230V.
+	// Max power = 16 * 230 = 3680W.
+	// Alloc = 3000W.
+
+	allocs := site.distributePower(-3000)
+
+	// We expect full utilization of 3000W
+	assert.InDelta(t, 3000.0, allocs[lp1], 1.0, "Should allocate full 3000W on 1p grid")
+}
