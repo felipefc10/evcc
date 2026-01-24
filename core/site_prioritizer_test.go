@@ -313,25 +313,25 @@ func TestDistributePower_Preemption(t *testing.T) {
 	// Setup Loadpoints
 	// LP1: Low Priority, Mode Now (Wants Full Grid)
 	lp1 := &Loadpoint{
-		title:      "Low Prio",
-		status:     api.StatusC,
-		mode:       api.ModeNow,
-		priority:   1,
-		minCurrent: 6,
-		maxCurrent: 16,
-		phases:     1, // 3.68kW
+		title:       "Low Prio",
+		status:      api.StatusC,
+		mode:        api.ModeNow,
+		priority:    1,
+		minCurrent:  6,
+		maxCurrent:  16,
+		phases:      1, // 3.68kW
 		chargePower: 3680,
 	}
 
 	// LP2: High Priority, Mode Now (Wants Full Grid)
 	lp2 := &Loadpoint{
-		title:      "High Prio",
-		status:     api.StatusC,
-		mode:       api.ModeNow,
-		priority:   2,
-		minCurrent: 6,
-		maxCurrent: 16,
-		phases:     1, // 3.68kW
+		title:       "High Prio",
+		status:      api.StatusC,
+		mode:        api.ModeNow,
+		priority:    2,
+		minCurrent:  6,
+		maxCurrent:  16,
+		phases:      1, // 3.68kW
 		chargePower: 0, // Just plugged in
 	}
 
@@ -366,24 +366,24 @@ func TestDistributePower_PV_Preemption(t *testing.T) {
 	// LP2 (High Prio, PV) Plugs in.
 
 	lp1 := &Loadpoint{
-		title:      "Low Prio",
-		status:     api.StatusC,
-		mode:       api.ModePV,
-		priority:   1,
-		minCurrent: 6,
-		maxCurrent: 16,
-		phases:     1, // 3.68kW
+		title:       "Low Prio",
+		status:      api.StatusC,
+		mode:        api.ModePV,
+		priority:    1,
+		minCurrent:  6,
+		maxCurrent:  16,
+		phases:      1, // 3.68kW
 		chargePower: 3680,
 	}
 
 	lp2 := &Loadpoint{
-		title:      "High Prio",
-		status:     api.StatusC,
-		mode:       api.ModePV,
-		priority:   2,
-		minCurrent: 6,
-		maxCurrent: 16,
-		phases:     1, // 3.68kW
+		title:       "High Prio",
+		status:      api.StatusC,
+		mode:        api.ModePV,
+		priority:    2,
+		minCurrent:  6,
+		maxCurrent:  16,
+		phases:      1, // 3.68kW
 		chargePower: 0,
 	}
 

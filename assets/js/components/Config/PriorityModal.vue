@@ -37,7 +37,7 @@ import GenericModal from "../Helper/GenericModal.vue";
 import DragDropList from "../Helper/DragDropList.vue";
 import DragDropItem from "../Helper/DragDropItem.vue";
 import api from "../../api";
-import { useLoadpoints } from "../../composables/loadpoints";
+import store from "../../store";
 
 interface PriorityLoadpoint {
 	id: number;
@@ -48,36 +48,37 @@ interface PriorityLoadpoint {
 export default defineComponent({
 	name: "PriorityModal",
 	components: { GenericModal, DragDropList, DragDropItem },
-	setup() {
-		const { loadpoints } = useLoadpoints();
-		return { loadpoints };
-	},
 	data() {
 		return {
 			localLoadpoints: [] as PriorityLoadpoint[],
 		};
 	},
+	computed: {
+		loadpoints() {
+			return store.uiLoadpoints.value || [];
+		},
+	},
 	methods: {
 		open() {
 			// Initialize local copy, sorted by priority (descending)
 			this.localLoadpoints = this.loadpoints
-				.map((lp) => ({
+				.map((lp: any) => ({
 					id: lp.id,
 					title: lp.title || `Loadpoint ${lp.id}`,
 					priority: lp.priority || 0,
 				}))
-				.sort((a, b) => b.priority - a.priority);
+				.sort((a: PriorityLoadpoint, b: PriorityLoadpoint) => b.priority - a.priority);
 		},
 		async reorder(newOrder: PriorityLoadpoint[]) {
 			this.localLoadpoints = newOrder;
 			// Update priorities based on new order (First = Max Priority)
 			const maxPrio = this.localLoadpoints.length;
-			const ids = this.localLoadpoints.map((lp) => lp.id);
+			const ids = this.localLoadpoints.map((lp: PriorityLoadpoint) => lp.id);
 
 			try {
 				await api.post("/priority", ids);
 				// Optimistic update of local priority display
-				this.localLoadpoints.forEach((lp, index) => {
+				this.localLoadpoints.forEach((lp: PriorityLoadpoint, index: number) => {
 					lp.priority = maxPrio - index;
 				});
 			} catch (e) {
