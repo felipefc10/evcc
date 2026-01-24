@@ -1175,7 +1175,6 @@ func (lp *Loadpoint) needsWelcomeCharge() bool {
 	return false
 }
 
-
 // elapsePVTimer puts the pv enable/disable timer into elapsed state
 func (lp *Loadpoint) elapsePVTimer() {
 	if lp.pvTimer.Equal(elapsed) {
@@ -1481,6 +1480,9 @@ func (lp *Loadpoint) applyAllocatedPower(mode api.ChargeMode, sitePower, allocat
 
 	// calculate target charge current from allocated power
 	activePhases := lp.ActivePhases()
+	if activePhases < 1 {
+		activePhases = 1
+	}
 	effectiveVoltage := lp.EffectiveVoltage(activePhases)
 
 	// If scaledTo > 0, we are switching. voltage changes.
