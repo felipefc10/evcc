@@ -1175,20 +1175,6 @@ func (lp *Loadpoint) needsWelcomeCharge() bool {
 	return false
 }
 
-// effectiveCurrent returns the currently effective charging current
-func (lp *Loadpoint) effectiveCurrent() float64 {
-	if !lp.charging() {
-		return 0
-	}
-
-	// adjust actual current for vehicles like Zoe where it remains below target
-	if lp.chargeCurrents != nil {
-		cur := max(lp.chargeCurrents[0], lp.chargeCurrents[1], lp.chargeCurrents[2])
-		return min(cur+2.0, lp.offeredCurrent)
-	}
-
-	return lp.offeredCurrent
-}
 
 // elapsePVTimer puts the pv enable/disable timer into elapsed state
 func (lp *Loadpoint) elapsePVTimer() {

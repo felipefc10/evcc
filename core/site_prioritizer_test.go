@@ -4,10 +4,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/circuit"
 	"github.com/evcc-io/evcc/util"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestDistributePower(t *testing.T) {
@@ -175,7 +176,7 @@ func TestDistributePower_GridLimit(t *testing.T) {
 	allocs := site.distributePower(0, nil, nil) // 0 Solar Surplus
 
 	// Total should be ~5000
-	assert.InDelta(t, 5000.0, allocs[lp1] + allocs[lp2], 100.0, "Total should equal grid limit")
+	assert.InDelta(t, 5000.0, allocs[lp1]+allocs[lp2], 100.0, "Total should equal grid limit")
 }
 
 func TestDistributePower_GridLimit_Priority(t *testing.T) {
