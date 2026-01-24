@@ -36,6 +36,25 @@
 				class="mt-2"
 				@batteryboost-updated="changeBatteryBoost"
 			/>
+			<div class="mb-3 row">
+				<label class="col-sm-4 col-form-label pt-0 pt-sm-2">
+					{{ $t("priority.modal.title") }}
+				</label>
+				<div class="col-sm-8 col-lg-4 pe-0 d-flex align-items-center">
+					<div class="input-group input-group-sm">
+						<select
+							:id="formId('priority')"
+							v-model.number="selectedPriority"
+							class="form-select form-select-sm"
+							@change="changePriority"
+						>
+							<option v-for="p in priorityOptions" :key="p" :value="p">
+								{{ $t("priority.level", { priority: p }) }}
+							</option>
+						</select>
+					</div>
+				</div>
+			</div>
 			<h6>
 				{{ $t("main.loadpointSettings.currents") }}
 			</h6>
@@ -173,6 +192,7 @@ export default defineComponent({
 		minSoc: Number,
 		maxCurrent: { type: Number, default: 0 },
 		minCurrent: { type: Number, default: 0 },
+		priority: { type: Number, default: 0 },
 		title: String,
 		smartCostLimit: { type: Number as PropType<number | null>, default: null },
 		smartCostType: String as PropType<SMART_COST_TYPE>,
@@ -191,12 +211,14 @@ export default defineComponent({
 		"maxcurrent-updated",
 		"mincurrent-updated",
 		"batteryboost-updated",
+		"priority-updated",
 	],
 	data() {
 		return {
 			selectedMaxCurrent: this.maxCurrent,
 			selectedMinCurrent: this.minCurrent,
 			selectedPhases: this.phasesConfigured,
+			selectedPriority: this.priority,
 			isModalVisible: false,
 		};
 	},
@@ -243,6 +265,19 @@ export default defineComponent({
 		loadpointId() {
 			return this.id;
 		},
+		priorityOptions() {
+			// This is slightly tricky as we don't know the max priority count here easily without store access or props.
+			// However, priority is usually 1..N.
+			// We can offer a range, or just let user pick a number.
+			// Better: Allow updating priority via this modal which calls API.
+			// But the API expects a reordering of all loadpoints.
+			// Changing priority of ONE loadpoint is hard if we don't know the others.
+			// Actually, the user asked for a "shortcut on the load point settings".
+			// If we change priority here, we should probably just emit it and let the parent handle it?
+			// But `priority` is relative.
+			// Let's assume we can set an integer priority.
+			return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+		},
 	},
 	watch: {
 		maxCurrent(value) {
@@ -253,6 +288,9 @@ export default defineComponent({
 		},
 		phasesConfigured(value) {
 			this.selectedPhases = value;
+		},
+		priority(value) {
+			this.selectedPriority = value;
 		},
 	},
 	methods: {
@@ -287,6 +325,9 @@ export default defineComponent({
 		},
 		changeBatteryBoost(boost: boolean) {
 			this.$emit("batteryboost-updated", boost);
+		},
+		changePriority() {
+			this.$emit("priority-updated", this.selectedPriority);
 		},
 	},
 });

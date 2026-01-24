@@ -308,3 +308,108 @@ func TestDistributePower_SmartCost(t *testing.T) {
 	// Max Power = 16A * 230V = 3680W.
 	assert.InDelta(t, 3680.0, allocs[lp1], 1.0, "Should charge at max power due to cheap grid")
 }
+
+func TestDistributePower_Preemption(t *testing.T) {
+	// Setup Loadpoints
+	// LP1: Low Priority, Mode Now (Wants Full Grid)
+	lp1 := &Loadpoint{
+		title:      "Low Prio",
+		status:     api.StatusC,
+		mode:       api.ModeNow,
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1, // 3.68kW
+		chargePower: 3680,
+	}
+
+	// LP2: High Priority, Mode Now (Wants Full Grid)
+	lp2 := &Loadpoint{
+		title:      "High Prio",
+		status:     api.StatusC,
+		mode:       api.ModeNow,
+		priority:   2,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1, // 3.68kW
+		chargePower: 0, // Just plugged in
+	}
+
+	// Site with Circuit Limit 5kW.
+	// Available Grid Budget = 5000W.
+	// Current Usage (LP1) = 3680W.
+	// Remaining Grid Budget if we don't count LP1 = 5000W - 3680W (import) + 3680W (addback) = 5000W.
+
+	circ, _ := circuit.New(util.NewLogger("foo"), "main", 0, 5000, nil, 0)
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1, lp2},
+		gridVoltages: []float64{230, 230, 230},
+		Voltage:      230,
+		circuit:      circ,
+		gridPower:    3680, // LP1 is drawing power
+	}
+
+	allocs := site.distributePower(0, nil, nil)
+
+	// Expectation:
+	// LP2 (High Prio) gets full 3680W.
+	// LP1 (Low Prio) gets remaining 1320W.
+	// LP1 should be throttled down.
+
+	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "High Prio LP2 should preempt")
+	assert.InDelta(t, 1320.0, allocs[lp1], 1.0, "Low Prio LP1 should be throttled")
+}
+
+func TestDistributePower_PV_Preemption(t *testing.T) {
+	// Scenario:
+	// LP1 (Low Prio, PV) is Charging at 3.68kW (using all surplus).
+	// LP2 (High Prio, PV) Plugs in.
+
+	lp1 := &Loadpoint{
+		title:      "Low Prio",
+		status:     api.StatusC,
+		mode:       api.ModePV,
+		priority:   1,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1, // 3.68kW
+		chargePower: 3680,
+	}
+
+	lp2 := &Loadpoint{
+		title:      "High Prio",
+		status:     api.StatusC,
+		mode:       api.ModePV,
+		priority:   2,
+		minCurrent: 6,
+		maxCurrent: 16,
+		phases:     1, // 3.68kW
+		chargePower: 0,
+	}
+
+	// Grid is Balanced (0) because Solar (3680) = Usage (3680).
+	// Surplus = -Grid = 0.
+	// Total Solar Budget = Surplus (0) + Charging (3680) = 3680W.
+
+	site := &Site{
+		loadpoints:   []*Loadpoint{lp1, lp2},
+		gridVoltages: []float64{230, 230, 230},
+		Voltage:      230,
+		gridPower:    0,
+	}
+
+	allocs := site.distributePower(0, nil, nil) // sitePower = 0
+
+	// Expectation:
+	// LP2 (High Prio) sees 3680W available. Needs Min (1.4kW) to start? No, it wants Max.
+	// Since both are PV, "Base Power" is 0. They compete in Optional Phase.
+	// Optional Phase distributes by Priority Group.
+	// Group 1: LP2 (Prio 2).
+	// Group 2: LP1 (Prio 1).
+
+	// LP2 should take all 3680W (up to its max).
+	// LP1 should get 0.
+
+	assert.InDelta(t, 3680.0, allocs[lp2], 1.0, "High Prio LP2 should take all solar")
+	assert.InDelta(t, 0.0, allocs[lp1], 1.0, "Low Prio LP1 should stop")
+}

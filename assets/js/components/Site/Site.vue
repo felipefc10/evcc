@@ -12,6 +12,7 @@
 				</h1>
 				<TopNavigationArea :notifications="notifications" />
 			</div>
+			<PriorityModal />
 			<HemsWarning :circuits="circuits" />
 			<Energyflow v-if="!setupRequired && !hasFatalError" v-bind="energyflow" />
 		</div>
@@ -85,7 +86,7 @@ import Footer from "../Footer/Footer.vue";
 import formatter from "@/mixins/formatter";
 import collector from "@/mixins/collector.ts";
 import WelcomeIcons from "./WelcomeIcons.vue";
-import { defineComponent, type PropType } from "vue";
+import { defineComponent, defineAsyncComponent, type PropType } from "vue";
 import type {
 	AuthProviders,
 	BatteryMeter,
@@ -111,6 +112,7 @@ export default defineComponent({
 		HemsWarning,
 		TopNavigationArea,
 		WelcomeIcons,
+		PriorityModal: defineAsyncComponent(() => import("../Config/PriorityModal.vue")),
 	},
 	mixins: [formatter, collector],
 	props: {

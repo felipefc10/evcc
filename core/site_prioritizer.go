@@ -84,32 +84,12 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 
 	if site.circuit != nil {
 		if maxP := site.circuit.GetMaxPower(); maxP > 0 {
-			// Remaining Grid = Max - CurrentUsage.
-			// CurrentUsage includes Site consumption (which is SitePower if positive).
-			// If SitePower is negative (Export), Site Consumption is covered by PV.
-			// Actually, `site.circuit.GetChargePower()` returns total loadpoint power?
-			// We need the *Grid Import*.
-			// Grid Power (site.gridPower) is Import(+)/Export(-).
-			// If Importing, Remaining = Max - Import.
-			// If Exporting, Remaining = Max (full import capability available).
-
-			// We need to add back the *current loadpoint consumption* to re-distribute it.
-			// But careful: site.gridPower *already includes* loadpoint consumption.
-			// So `Remaining = Max - site.gridPower`.
-
-			// Example: Max 10kW. Import 2kW (EVs consuming 2kW).
-			// Remaining = 10 - 2 = 8kW.
-			// Total Grid Budget available for EVs = 8kW (new) + 2kW (existing) = 10kW.
-			// Wait, if base load is 0kW.
-
-			// Let's use `gridPower`.
-			// `availableGrid` = `maxP - site.gridPower`.
-			// We want to re-distribute.
-			// So we add back current LP consumption *that is coming from grid*.
-			// That's hard to distinguish.
-			// Easier: `budget = available + usage`.
 			gridBudget = maxP - site.gridPower
 		}
+	}
+
+	if site.log != nil {
+		site.log.DEBUG.Printf("prioritizer: budgets before add-back: solar %.0fW, grid %.0fW, site %.0fW", solarBudget, gridBudget, sitePower)
 	}
 
 	// Add current consumption back to budgets
@@ -219,6 +199,10 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 		nodes = append(nodes, node)
 	}
 
+	if site.log != nil {
+		site.log.DEBUG.Printf("prioritizer: budgets after add-back: solar %.0fW, grid %.0fW", solarBudget, gridBudget)
+	}
+
 	// 3. Group and Sort
 	sort.Slice(nodes, func(i, j int) bool {
 		return nodes[i].priority > nodes[j].priority
@@ -242,6 +226,9 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 			solarBudget -= needed
 			gridBudget -= needed // reducing solar surplus reduces net grid export, consuming grid budget
 			n.allocation += needed
+			if site.log != nil {
+				site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from solar. remaining: solar %.0fW", n.lp.GetTitle(), n.priority, needed, solarBudget)
+			}
 		} else {
 			// Take what we can from Solar
 			taken := max(0, solarBudget)
@@ -250,16 +237,26 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 			gridBudget -= taken // reducing solar surplus reduces net grid export, consuming grid budget
 			needed -= taken
 
+			if taken > 0 && site.log != nil {
+				site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from solar (partial). remaining: solar 0W", n.lp.GetTitle(), n.priority, taken)
+			}
+
 			// Take rest from Grid (if allowed)
 			if n.allowGrid {
 				if gridBudget >= needed {
 					gridBudget -= needed
 					n.allocation += needed
+					if site.log != nil {
+						site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from grid. remaining: grid %.0fW", n.lp.GetTitle(), n.priority, needed, gridBudget)
+					}
 				} else {
 					// Grid saturated. Take what we can.
 					taken := max(0, gridBudget)
 					gridBudget = 0
 					n.allocation += taken
+					if site.log != nil {
+						site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from grid (partial/saturated). remaining: grid 0W", n.lp.GetTitle(), n.priority, taken)
+					}
 				}
 			}
 		}
@@ -290,6 +287,11 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 			// Return allocation to SolarBudget?
 			// Implementing simple revocation for now.
 			// Ideally, we loop until stable, but one pass is safer for convergence.
+			if n.allocation > 0 {
+				if site.log != nil {
+					site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) revoked %.0fW allocation (below min %.0fW)", n.lp.GetTitle(), n.priority, n.allocation, n.minPower)
+				}
+			}
 			n.allocation = 0
 		}
 	}

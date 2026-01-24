@@ -53,6 +53,16 @@
 					{{ $t("batterySettings.modalTitle") }}
 				</button>
 			</li>
+			<li>
+				<button
+					type="button"
+					class="dropdown-item"
+					data-testid="topnavigation-priority"
+					@click="openPriorityModal"
+				>
+					{{ $t("priority.modal.title") }}
+				</button>
+			</li>
 			<li v-if="forecastAvailable">
 				<button
 					type="button"
@@ -250,6 +260,12 @@ export default defineComponent({
 		openBatterySettingsModal() {
 			const modal = Modal.getOrCreateInstance(
 				document.getElementById("batterySettingsModal") as HTMLElement
+			);
+			modal.show();
+		},
+		openPriorityModal() {
+			const modal = Modal.getOrCreateInstance(
+				document.getElementById("priorityModal") as HTMLElement
 			);
 			modal.show();
 		},

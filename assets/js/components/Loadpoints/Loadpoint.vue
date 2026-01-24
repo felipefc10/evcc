@@ -38,6 +38,7 @@
 			@mincurrent-updated="setMinCurrent"
 			@phasesconfigured-updated="setPhasesConfigured"
 			@batteryboost-updated="setBatteryBoost"
+			@priority-updated="setPriority"
 		/>
 
 		<div
@@ -380,6 +381,9 @@ export default defineComponent({
 		},
 		setPhasesConfigured(phases: PHASES) {
 			api.post(this.apiPath("phases") + "/" + phases);
+		},
+		setPriority(priority: number) {
+			api.post(this.apiPath("priority") + "/" + priority);
 		},
 		changeVehicle(name: string) {
 			api.post(this.apiPath("vehicle") + `/${name}`);
