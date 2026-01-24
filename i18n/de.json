@@ -509,14 +509,6 @@
       "url": "Server-URL",
       "urlHelp": "Kopiere diese URL in die Konfiguration deiner Wallbox. Details findest du im Handbuch des Herstellers. Die Wallbox sollte automatisch ihre eindeutige Kennung (Station-ID) an die URL anhängen. In seltenen Fällen musst du die Kennung manuell angeben. Beispiel: `{url}`"
     },
-    "priority": {
-      "level": "Priorität {priority}",
-      "modal": {
-        "description": "Ladepunkte mit höherer Priorität werden zuerst bedient.",
-        "noLoadpoints": "Keine Ladepunkte verfügbar.",
-        "title": "Ladepunkt Priorität"
-      }
-    },
     "options": {
       "boolean": {
         "no": "nein",
@@ -538,6 +530,14 @@
         "A": "A (nicht verbunden)",
         "B": "B (verbunden)",
         "C": "C (lädt)"
+      }
+    },
+    "priority": {
+      "level": "Priorität {priority}",
+      "modal": {
+        "description": "Ladepunkte mit höherer Priorität werden zuerst bedient.",
+        "noLoadpoints": "Keine Ladepunkte verfügbar.",
+        "title": "Ladepunkt Priorität"
       }
     },
     "pv": {

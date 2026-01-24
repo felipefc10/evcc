@@ -114,7 +114,7 @@ func TestDistributePower_Preemption(t *testing.T) {
 	lpLow.EXPECT().GetPhases().Return(1).AnyTimes()
 	lpLow.EXPECT().GetMinCurrent().Return(6.0).AnyTimes()
 	lpLow.EXPECT().GetMaxCurrent().Return(16.0).AnyTimes() // 3.6kW
-	lpLow.EXPECT().GetPriority().Return(0).AnyTimes() // Low
+	lpLow.EXPECT().GetPriority().Return(0).AnyTimes()      // Low
 	lpLow.EXPECT().GetTitle().Return("Low").AnyTimes()
 
 	// Site Info
