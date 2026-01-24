@@ -1,6 +1,7 @@
 package core
 
 import (
+	"math"
 	"sort"
 	"time"
 
@@ -68,7 +69,7 @@ func (site *Site) effectiveVoltage(lp loadpoint.API) float64 {
 }
 
 // distributePower distributes the available power among loadpoints based on priority
-func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rates) map[loadpoint.API]float64 {
+func (site *Site) distributePower(loadpoints []loadpoint.API, sitePower float64, consumption, feedin api.Rates) map[loadpoint.API]float64 {
 	allocations := make(map[loadpoint.API]float64)
 	var nodes []*loadpointNode
 
@@ -93,7 +94,7 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 	}
 
 	// Add current consumption back to budgets
-	for _, lp := range site.loadpoints {
+	for _, lp := range loadpoints {
 		status := lp.GetStatus()
 		mode := lp.GetMode()
 
@@ -209,61 +210,6 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 	})
 
 	// 4. Distribute
-
-	// We need to distribute carefully.
-	// Step A: Fulfill "Base Power" (Guaranteed).
-	// Base Power can come from Solar OR Grid (if allowed).
-	// Prioritize Solar for everyone to keep Grid usage low? Yes.
-
-	for _, n := range nodes {
-		needed := n.basePower
-		if needed == 0 {
-			continue
-		}
-
-		// Try Solar First
-		if solarBudget >= needed {
-			solarBudget -= needed
-			gridBudget -= needed // reducing solar surplus reduces net grid export, consuming grid budget
-			n.allocation += needed
-			if site.log != nil {
-				site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from solar. remaining: solar %.0fW", n.lp.GetTitle(), n.priority, needed, solarBudget)
-			}
-		} else {
-			// Take what we can from Solar
-			taken := max(0, solarBudget)
-			n.allocation += taken
-			solarBudget = 0
-			gridBudget -= taken // reducing solar surplus reduces net grid export, consuming grid budget
-			needed -= taken
-
-			if taken > 0 && site.log != nil {
-				site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from solar (partial). remaining: solar 0W", n.lp.GetTitle(), n.priority, taken)
-			}
-
-			// Take rest from Grid (if allowed)
-			if n.allowGrid {
-				if gridBudget >= needed {
-					gridBudget -= needed
-					n.allocation += needed
-					if site.log != nil {
-						site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from grid. remaining: grid %.0fW", n.lp.GetTitle(), n.priority, needed, gridBudget)
-					}
-				} else {
-					// Grid saturated. Take what we can.
-					taken := max(0, gridBudget)
-					gridBudget = 0
-					n.allocation += taken
-					if site.log != nil {
-						site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) allocated %.0fW base from grid (partial/saturated). remaining: grid 0W", n.lp.GetTitle(), n.priority, taken)
-					}
-				}
-			}
-		}
-	}
-
-	// Step B: Distribute Remaining Solar to Optional Demand (PV surplus)
-	// Iterate Priority Groups
 	if len(nodes) > 0 {
 		i := 0
 		for i < len(nodes) {
@@ -275,8 +221,36 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 			group := nodes[i:j]
 			i = j
 
-			// Distribute Solar Budget to Group
-			distributeToGroup(group, &solarBudget, false)
+			// Step A: Base Power (Solar)
+			// Tries to fulfill base requirement from Solar.
+			distributeBudget(group, &solarBudget, &gridBudget, func(n *loadpointNode) float64 {
+				return n.basePower - n.allocation
+			}, func(n *loadpointNode) bool {
+				return true
+			})
+
+			// Step B: Base Power (Grid)
+			// Tries to fulfill remaining base requirement from Grid.
+			distributeBudget(group, &gridBudget, nil, func(n *loadpointNode) float64 {
+				return n.basePower - n.allocation
+			}, func(n *loadpointNode) bool {
+				return n.allowGrid
+			})
+
+			// Step C: Optional Power (Solar)
+			// Tries to fulfill remaining max requirement from Solar.
+			distributeBudget(group, &solarBudget, &gridBudget, func(n *loadpointNode) float64 {
+				return n.maxPower - n.allocation
+			}, func(n *loadpointNode) bool {
+				// Everyone (who hasn't reached max) can take solar surplus
+				// Usually strict filtering isn't needed here as base logic handled mode constraints.
+				// But we should double check if pure Grid mode should take solar?
+				// Mode Now (Grid) has basePower=maxPower, so allocation already full, demand=0.
+				// Mode MinPV (Grid+Solar) has base=min. Optional=Max. demand>0. Takes Solar.
+				// Mode PV (Solar) has base=0. Optional=Max. demand>0. Takes Solar.
+				// So `true` is fine.
+				return true
+			})
 		}
 	}
 
@@ -284,9 +258,6 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 	// If a PV node didn't get enough to start, revoke allocation.
 	for _, n := range nodes {
 		if !n.allowGrid && n.allocation < n.minPower {
-			// Return allocation to SolarBudget?
-			// Implementing simple revocation for now.
-			// Ideally, we loop until stable, but one pass is safer for convergence.
 			if n.allocation > 0 {
 				if site.log != nil {
 					site.log.DEBUG.Printf("prioritizer: lp %s (prio %d) revoked %.0fW allocation (below min %.0fW)", n.lp.GetTitle(), n.priority, n.allocation, n.minPower)
@@ -305,21 +276,27 @@ func (site *Site) distributePower(sitePower float64, consumption, feedin api.Rat
 	return allocations
 }
 
-func distributeToGroup(group []*loadpointNode, budget *float64, useGrid bool) {
-	remainingBudget := max(0, *budget)
+// distributeBudget distributes a specific budget to a group of nodes equally/proportionally
+func distributeBudget(group []*loadpointNode, budget *float64, secondaryBudget *float64, demandFunc func(*loadpointNode) float64, filterFunc func(*loadpointNode) bool) {
+	available := math.Max(0, *budget)
+	if available <= 0.1 {
+		return
+	}
 
-	for remainingBudget > 0 {
+	// Iterative Water Filling
+	for available > 0.1 {
+		// Find active consumers
 		var active []*loadpointNode
-		for _, n := range group {
-			// If using grid, only allow grid-enabled nodes that haven't reached max
-			// If not using grid (solar), allow anyone who hasn't reached max
-			// Note: "Optional" demand for MinPV/Now is handled here too?
-			// For "Now", basePower == maxPower, so it won't be active here.
-			// For "MinPV", basePower = Min. It wants up to Max.
-			// For "PV", basePower = 0. Wants up to Max.
+		totalDemand := 0.0
 
-			if n.allocation < n.maxPower {
+		for _, n := range group {
+			if !filterFunc(n) {
+				continue
+			}
+			demand := demandFunc(n)
+			if demand > 0.1 {
 				active = append(active, n)
+				totalDemand += demand
 			}
 		}
 
@@ -327,20 +304,32 @@ func distributeToGroup(group []*loadpointNode, budget *float64, useGrid bool) {
 			break
 		}
 
-		share := remainingBudget / float64(len(active))
-		allocatedThisRound := 0.0
+		// Distribute share
+		// Each gets min(demand, share)
+		// Share = available / count
+		share := available / float64(len(active))
+		usedThisRound := 0.0
 
 		for _, n := range active {
-			wanted := n.maxPower - n.allocation
-			give := min(wanted, share)
+			demand := demandFunc(n)
+			give := math.Min(demand, share)
 			n.allocation += give
-			allocatedThisRound += give
+			usedThisRound += give
 		}
 
-		remainingBudget -= allocatedThisRound
-		if allocatedThisRound < 1.0 {
+		available -= usedThisRound
+
+		// If we gave nothing (shouldn't happen with >0 checks), break to avoid infinite loop
+		if usedThisRound < 0.001 {
 			break
 		}
 	}
-	*budget = remainingBudget
+
+	used := math.Max(0, *budget) - available
+	*budget = available
+
+	// Reduce secondary budget if linked (e.g. Solar usage consumes Grid Capacity)
+	if secondaryBudget != nil {
+		*secondaryBudget -= used
+	}
 }

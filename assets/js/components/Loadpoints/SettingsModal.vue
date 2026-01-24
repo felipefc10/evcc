@@ -266,17 +266,7 @@ export default defineComponent({
 			return this.id;
 		},
 		priorityOptions() {
-			// This is slightly tricky as we don't know the max priority count here easily without store access or props.
-			// However, priority is usually 1..N.
-			// We can offer a range, or just let user pick a number.
-			// Better: Allow updating priority via this modal which calls API.
-			// But the API expects a reordering of all loadpoints.
-			// Changing priority of ONE loadpoint is hard if we don't know the others.
-			// Actually, the user asked for a "shortcut on the load point settings".
-			// If we change priority here, we should probably just emit it and let the parent handle it?
-			// But `priority` is relative.
-			// Let's assume we can set an integer priority.
-			return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+			return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 		},
 	},
 	watch: {

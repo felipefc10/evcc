@@ -114,40 +114,16 @@ func updateSiteHandler(site site.API) http.HandlerFunc {
 // priorityHandler handles the priority updates
 func priorityHandler(site site.API) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var loadpointIDs []int
-		if err := jsonDecoder(r.Body).Decode(&loadpointIDs); err != nil {
+		var priorities map[int]int
+		if err := jsonDecoder(r.Body).Decode(&priorities); err != nil {
 			jsonError(w, http.StatusBadRequest, err)
 			return
 		}
 
-		// The logic is to assign priority based on the index in the array.
-		// Higher index -> Higher Priority? Or First = High Prio?
-		// User said: "drag and drop... to order the priority".
-		// Usually Top = High Priority.
-		// So we should assign priorities in descending order.
-		// ID[0] = Max Prio (len)
-		// ID[last] = Min Prio (1)
-
 		lps := site.Loadpoints()
-		if len(loadpointIDs) != len(lps) {
-			// This might be tricky if IDs don't match indices directly or if there's a mismatch count.
-			// Let's assume the frontend sends a list of indices (0-based) or IDs (1-based)?
-			// The UI typically knows IDs. `site.Loadpoints` returns a slice.
-			// Loadpoint IDs in API are 1-based (index + 1).
-		}
-
-		// Map ID to Loadpoint
-		// Assuming simple 1-based indexing for now as per `RegisterSiteHandlers` loop:
-		// for id, lp := range site.Loadpoints() ... /loadpoints/%d (id+1)
-
-		maxPrio := len(loadpointIDs)
-		for i, id := range loadpointIDs {
-			// Find LP with this ID
-			// 1-based ID -> 0-based index
+		for id, prio := range priorities {
 			idx := id - 1
 			if idx >= 0 && idx < len(lps) {
-				// Priority: Top of list = Highest Priority
-				prio := maxPrio - i
 				lps[idx].SetPriority(prio)
 			}
 		}

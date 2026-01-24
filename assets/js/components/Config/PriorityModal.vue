@@ -9,21 +9,24 @@
 			<p class="mb-3 text-secondary">
 				{{ $t("priority.modal.description") }}
 			</p>
-			<DragDropList :values="localLoadpoints" @reorder="reorder">
-				<DragDropItem
+			<div class="list-group list-group-flush">
+				<div
 					v-for="lp in localLoadpoints"
 					:key="lp.id"
-					:title="lp.title"
-					class="mb-2"
+					class="list-group-item d-flex align-items-center justify-content-between px-0"
 				>
-					<div class="d-flex align-items-center">
-						<span class="flex-grow-1 fw-bold">{{ lp.title }}</span>
-						<span class="badge bg-secondary ms-2">
-							{{ $t("priority.level", { priority: lp.priority }) }}
-						</span>
-					</div>
-				</DragDropItem>
-			</DragDropList>
+					<span class="fw-bold">{{ lp.title }}</span>
+					<select
+						v-model.number="lp.priority"
+						class="form-select w-auto"
+						@change="updatePriority"
+					>
+						<option v-for="p in 11" :key="p - 1" :value="p - 1">
+							{{ $t("priority.level", { priority: p - 1 }) }}
+						</option>
+					</select>
+				</div>
+			</div>
 		</div>
 		<div v-else>
 			<p>{{ $t("priority.modal.noLoadpoints") }}</p>
@@ -34,8 +37,6 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import GenericModal from "../Helper/GenericModal.vue";
-import DragDropList from "../Helper/DragDropList.vue";
-import DragDropItem from "../Helper/DragDropItem.vue";
 import api from "../../api";
 import store from "../../store";
 
@@ -47,7 +48,7 @@ export interface PriorityLoadpoint {
 
 export default defineComponent({
 	name: "PriorityModal",
-	components: { GenericModal, DragDropList, DragDropItem },
+	components: { GenericModal },
 	data() {
 		return {
 			localLoadpoints: [] as PriorityLoadpoint[],
@@ -69,18 +70,14 @@ export default defineComponent({
 				}))
 				.sort((a: PriorityLoadpoint, b: PriorityLoadpoint) => b.priority - a.priority);
 		},
-		async reorder(newOrder: PriorityLoadpoint[]) {
-			this.localLoadpoints = newOrder;
-			// Update priorities based on new order (First = Max Priority)
-			const maxPrio = this.localLoadpoints.length;
-			const ids = this.localLoadpoints.map((lp: PriorityLoadpoint) => lp.id);
+		async updatePriority() {
+			const priorities: Record<number, number> = {};
+			this.localLoadpoints.forEach((lp) => {
+				priorities[lp.id] = lp.priority;
+			});
 
 			try {
-				await api.post("/priority", ids);
-				// Optimistic update of local priority display
-				this.localLoadpoints.forEach((lp: PriorityLoadpoint, index: number) => {
-					lp.priority = maxPrio - index;
-				});
+				await api.post("/priority", priorities);
 			} catch (e) {
 				console.error("Failed to update priority", e);
 			}
