@@ -39,7 +39,7 @@ import DragDropItem from "../Helper/DragDropItem.vue";
 import api from "../../api";
 import store from "../../store";
 
-interface PriorityLoadpoint {
+export interface PriorityLoadpoint {
 	id: number;
 	title: string;
 	priority: number;
