@@ -853,6 +853,10 @@ func (lp *Loadpoint) SetMinCurrent(current float64) error {
 	lp.log.DEBUG.Println("set min current:", current)
 	if current != lp.minCurrent {
 		lp.setMinCurrent(current)
+		// load management reads the effective limits of the next cycle
+		if lp.sc != nil {
+			lp.requestUpdate()
+		}
 	}
 
 	return nil
@@ -889,6 +893,10 @@ func (lp *Loadpoint) SetMaxCurrent(current float64) error {
 	lp.log.DEBUG.Println("set max current:", current)
 	if current != lp.maxCurrent {
 		lp.setMaxCurrent(current)
+		// load management reads the effective limits of the next cycle
+		if lp.sc != nil {
+			lp.requestUpdate()
+		}
 	}
 
 	return nil
