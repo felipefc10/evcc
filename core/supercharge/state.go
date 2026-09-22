@@ -2,6 +2,7 @@ package supercharge
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
@@ -303,8 +304,21 @@ func (m *Manager) publishLocked() {
 		return
 	}
 	m.pub("supercharging", m.stateLocked())
+	m.publishConfigLocked()
+}
+
+// publishConfigLocked publishes the configuration when it changed
+func (m *Manager) publishConfigLocked() {
+	if m.pub == nil {
+		return
+	}
 	cfg := m.cfg
 	cfg.Settings = m.cfg.Settings.Clone()
+	raw, err := json.Marshal(cfg)
+	if err != nil || string(raw) == m.lastConfig {
+		return
+	}
+	m.lastConfig = string(raw)
 	m.pub("superchargingConfig", cfg)
 }
 

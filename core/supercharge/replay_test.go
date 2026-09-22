@@ -91,13 +91,13 @@ func scopeInto(s *Settings, scope string, sm *Sample) {
 }
 
 type recLine struct {
-	Op       string     `json:"op"`
+	Op       string                      `json:"op"`
 	Curve    *struct{ Q, K, Sc float64 } `json:"curve"`
-	Settings pySettings `json:"settings"`
-	Frac     *float64   `json:"frac"`
-	Now      float64    `json:"now"`
-	Keep     bool       `json:"keep"`
-	Sample   *Sample    `json:"sample"`
+	Settings pySettings                  `json:"settings"`
+	Frac     *float64                    `json:"frac"`
+	Now      float64                     `json:"now"`
+	Keep     bool                        `json:"keep"`
+	Sample   *Sample                     `json:"sample"`
 	Cmd      *struct {
 		Act    Act         `json:"act"`
 		Amps   int         `json:"amps"`

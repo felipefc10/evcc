@@ -13,23 +13,23 @@ import (
 // latency, a margin on top, and silent until it has evidence.
 
 const (
-	learnMargin        = 0.7
-	learnMoveA         = 0.4
-	learnArriveA       = 0.6
-	learnGiveUpS       = 90.0
-	learnMinStepA      = 3.0
-	learnMinSamples    = 4
-	maxEntryOffsetA    = 2.0
-	maxEntryResidualA  = 1.25
-	learnMaxSourceOhm  = 1.5
-	minSourceStepA     = 5.0
-	entryDeadbandA     = 0.5
-	LearnSchema        = 9
-	learnKeep          = 40
-	slowestCredible    = 4.0
-	latestCredible     = 3.0
-	latestCredibleUp   = 6.0
-	learnKeySeparator  = "|"
+	learnMargin       = 0.7
+	learnMoveA        = 0.4
+	learnArriveA      = 0.6
+	learnGiveUpS      = 90.0
+	learnMinStepA     = 3.0
+	learnMinSamples   = 4
+	maxEntryOffsetA   = 2.0
+	maxEntryResidualA = 1.25
+	learnMaxSourceOhm = 1.5
+	minSourceStepA    = 5.0
+	entryDeadbandA    = 0.5
+	LearnSchema       = 9
+	learnKeep         = 40
+	slowestCredible   = 4.0
+	latestCredible    = 3.0
+	latestCredibleUp  = 6.0
+	learnKeySeparator = "|"
 )
 
 // Behaviour is what has been learned about one loadpoint+vehicle
