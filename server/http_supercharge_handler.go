@@ -124,8 +124,8 @@ func superchargeSelftestHandler(m *supercharge.Manager) http.HandlerFunc {
 func superchargeImportHandler(m *supercharge.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req struct {
-			Settings map[string]any   `json:"settings"`
-			Learned  json.RawMessage  `json:"learned"`
+			Settings map[string]any    `json:"settings"`
+			Learned  json.RawMessage   `json:"learned"`
 			Names    map[string]string `json:"names"`
 		}
 		if err := json.NewDecoder(io.LimitReader(r.Body, superchargeBodyLimit)).Decode(&req); err != nil {
