@@ -23,6 +23,7 @@ import (
 	"github.com/evcc-io/evcc/core/prioritizer"
 	"github.com/evcc-io/evcc/core/session"
 	"github.com/evcc-io/evcc/core/site"
+	"github.com/evcc-io/evcc/core/supercharge"
 	"github.com/evcc-io/evcc/core/soc"
 	"github.com/evcc-io/evcc/core/types"
 	"github.com/evcc-io/evcc/core/vehicle"
@@ -126,6 +127,8 @@ type Site struct {
 	optimizerUpdated time.Time  // last optimizer run, guarded by optimizerMu
 
 	solarScaleCached func() (float64, error) // util.Cached wrapper around querySolarScale
+
+	supercharge *supercharge.Manager // whole-house load management
 }
 
 // siteState is the site's cached measurement state, updated once per meter cycle
@@ -1501,6 +1504,8 @@ func (site *Site) Prepare(valueChan chan<- util.Param, pushChan chan<- messenger
 
 		lp.Prepare(site, lpUIChan, lpPushChan, site.lpUpdateChan)
 	}
+
+	site.prepareSupercharge()
 }
 
 // loopLoadpoints keeps iterating across loadpoints sending the next to the given channel
@@ -1528,6 +1533,8 @@ func (site *Site) Run(stopC chan struct{}, interval time.Duration) {
 	if max := 30 * time.Second; interval < max {
 		site.log.INFO.Printf("interval <%.0fs can lead to unexpected behavior, see https://docs.evcc.io/docs/reference/configuration/interval", max.Seconds())
 	}
+
+	site.runSupercharge(stopC)
 
 	loadpointChan := make(chan updater)
 	if site.IsConfigured() {

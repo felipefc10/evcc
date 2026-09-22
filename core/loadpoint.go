@@ -23,6 +23,7 @@ import (
 	"github.com/evcc-io/evcc/core/settings"
 	"github.com/evcc-io/evcc/core/site"
 	"github.com/evcc-io/evcc/core/soc"
+	"github.com/evcc-io/evcc/core/supercharge"
 	"github.com/evcc-io/evcc/core/wrapper"
 	"github.com/evcc-io/evcc/messenger"
 	"github.com/evcc-io/evcc/util"
@@ -192,6 +193,16 @@ type Loadpoint struct {
 	settings settings.Settings
 
 	tasks *util.Queue[Task] // tasks to be executed
+
+	// whole-house load management (supercharging)
+	limitMu  sync.Mutex // serialises charger commands from the loadpoint cycle and the load manager
+	sc       *supercharge.Manager
+	scName   string
+	scDemand float64 // current asked for by the mode logic, before load management
+	scMinA   float64 // effective min current of the last cycle
+	scMaxA   float64 // effective max current of the last cycle
+	scLpMin  float64 // loadpoint min current of the last cycle
+	scPhases int     // active phases of the last cycle
 }
 
 // NewLoadpointFromConfig creates a new loadpoint
@@ -986,6 +997,14 @@ func (lp *Loadpoint) actualMaxChargeCurrent() float64 {
 
 // setLimit applies charger current limits and enables/disables accordingly
 func (lp *Loadpoint) setLimit(current float64) error {
+	lp.limitMu.Lock()
+	defer lp.limitMu.Unlock()
+
+	return lp.applyLimit(lp.superchargeClamp(current))
+}
+
+// applyLimit applies charger current limits and enables/disables accordingly (limitMu held)
+func (lp *Loadpoint) applyLimit(current float64) error {
 	current = lp.roundedCurrent(current)
 
 	// apply circuit limits
