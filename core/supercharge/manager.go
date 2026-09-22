@@ -21,7 +21,7 @@ const (
 	autoStopS      = 300.0            // stand down this long after the last charge
 	armPollS       = 3.0              // standby check period
 	stillbornS     = 5.0              // a burst shorter than this died on entry
-	heartbeatS     = 10.0             // a loop silent this long is treated as dead by the loadpoints
+	heartbeatS     = 25.0             // a loop silent this long is treated as dead by the loadpoints
 	measureStaleS  = 300.0            // an on-change current feed is held this long
 	tempFreshS     = 120.0            // a temperature older than this is unknown
 	forecastWinS   = 600.0            // window of the delivered-power average
@@ -145,7 +145,7 @@ type managedLp struct {
 	wake      chan struct{}
 	commanded bool // the controller has commanded it this run
 
-	delivered [2]float64   // Wh, s
+	delivered [2]float64 // Wh, s
 	lastT     float64
 	recent    [][3]float64 // slot, Wh, s
 	standSaid int64
@@ -193,6 +193,7 @@ type Manager struct {
 	warnedClaim  bool
 	lastSave     time.Time
 	checks       []Check
+	lastConfig   string
 	checkedAt    time.Time
 
 	feeds   map[string]feedValue
