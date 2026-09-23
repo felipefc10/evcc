@@ -77,6 +77,9 @@ type LpConfig struct {
 	MeasureUnit string `json:"measureUnit"`
 	// TempTopic is an MQTT topic publishing the charger temperature in °C
 	TempTopic string `json:"tempTopic"`
+	// MaxTopic is an MQTT topic publishing the most current the car accepts right now, in A.
+	// Commands above it are refused by some cars' integrations, so the loop never plans above it.
+	MaxTopic string `json:"maxTopic"`
 }
 
 // Config is the persisted configuration, settings included
@@ -123,6 +126,7 @@ func (c *Config) sanitize() {
 	for k, v := range c.Loadpoints {
 		v.MeasureTopic = strings.TrimSpace(v.MeasureTopic)
 		v.TempTopic = strings.TrimSpace(v.TempTopic)
+		v.MaxTopic = strings.TrimSpace(v.MaxTopic)
 		if v.MeasureUnit != "W" {
 			v.MeasureUnit = "A"
 		}
@@ -612,7 +616,7 @@ func (m *Manager) step(ctx context.Context) {
 
 		wants := st.Connected && st.DemandA > 0 && st.DemandA+1e-9 >= st.MinA
 		minA := st.MinA * float64(phases)
-		maxA := st.MaxA * float64(phases)
+		maxA := m.carMaxA(c, st) * float64(phases)
 		if wants && st.DemandA > 0 {
 			maxA = math.Min(maxA, math.Floor(st.DemandA+1e-9)*float64(phases))
 		}
@@ -1102,7 +1106,7 @@ func (m *Manager) subscribe() {
 	m.mu.Lock()
 	var topics []string
 	for _, c := range m.cfg.Loadpoints {
-		for _, t := range []string{c.MeasureTopic, c.TempTopic} {
+		for _, t := range []string{c.MeasureTopic, c.TempTopic, c.MaxTopic} {
 			if t != "" && !m.subbed[t] {
 				topics = append(topics, t)
 			}
@@ -1127,6 +1131,18 @@ func (m *Manager) subscribe() {
 		m.subbed[topic] = true
 		m.mu.Unlock()
 	}
+}
+
+// carMaxA is the loadpoint maximum, lowered to what the car says it accepts right now.
+// A ceiling below the minimum is ignored: it is a parked car's reading, not a limit.
+func (m *Manager) carMaxA(c LpConfig, st LpState) float64 {
+	if c.MaxTopic == "" {
+		return st.MaxA
+	}
+	if v, ok := m.feed(c.MaxTopic); ok && v >= st.MinA && v < st.MaxA {
+		return math.Floor(v + 1e-9)
+	}
+	return st.MaxA
 }
 
 func (m *Manager) feed(topic string) (float64, bool) {

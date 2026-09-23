@@ -255,7 +255,7 @@ func (m *Manager) stateLocked() State {
 			Index: l.index, Name: l.name, Title: ls.Title, Vehicle: ls.Vehicle, Mode: ls.Mode,
 			Priority: ls.Priority, Connected: ls.Connected, Charging: ls.Charging,
 			Wants:   ls.Connected && ls.DemandA > 0 && ls.DemandA+1e-9 >= ls.MinA,
-			DemandA: ls.DemandA, MinA: ls.MinA, MaxA: ls.MaxA, Phases: max(ls.Phases, 1),
+			DemandA: ls.DemandA, MinA: ls.MinA, MaxA: m.carMaxA(lc, ls), Phases: max(ls.Phases, 1),
 			Paused: true, Fast: lc.Fast, Soc: ls.Soc, LimitSoc: ls.LimitSoc,
 			Forecast: m.forecast(l, ls),
 		}
@@ -385,6 +385,13 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 			add(st.Title+" current", true, "taken from the loadpoint's own cycle (treated as stale)")
 		}
 		add(st.Title+" range", st.MaxA >= st.MinA && st.MinA > 0, "%.0f-%.0f A, priority %d", st.MinA, st.MaxA, st.Priority)
+		if lc.MaxTopic != "" {
+			if v, ok := m.feed(lc.MaxTopic); ok {
+				add(st.Title+" car maximum", true, "MQTT %s: %.0f A, planning up to %.0f A", lc.MaxTopic, v, m.carMaxA(lc, st))
+			} else {
+				add(st.Title+" car maximum", true, "MQTT %s, nothing received yet: planning up to %.0f A", lc.MaxTopic, st.MaxA)
+			}
+		}
 		if lc.TempTopic != "" {
 			if age := m.feedAge(lc.TempTopic); age != nil {
 				v, _ := m.feed(lc.TempTopic)
