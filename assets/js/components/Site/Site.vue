@@ -4,6 +4,14 @@
 			<TopHeader :title="headerTitle" :notifications="notifications" />
 			<HemsWarning :status="hems?.status" />
 			<Energyflow v-if="!setupRequired && !hasFatalError" v-bind="energyflow" />
+			<router-link
+				v-if="!setupRequired && !hasFatalError && supercharging?.enabled"
+				to="/load"
+				class="load-summary d-block round-box p-3 mt-3 text-reset text-decoration-none"
+				data-testid="load-summary"
+			>
+				<LoadLedger :state="supercharging" compact />
+			</router-link>
 		</div>
 		<div class="d-flex flex-column justify-content-between content-area">
 			<div
@@ -59,8 +67,11 @@
 				:batteryMode="batteryMode"
 				:forecast="forecast"
 				:selectedId="selectedLoadpointId"
+				:loadState="supercharging"
 				@id-changed="selectedLoadpointChanged"
+				@open-supercharge="openSupercharge"
 			/>
+			<SuperchargeModal ref="superchargeModal" />
 		</div>
 	</div>
 </template>
@@ -74,6 +85,9 @@ import Loadpoints from "../Loadpoints/Loadpoints.vue";
 import formatter from "@/mixins/formatter";
 import collector from "@/mixins/collector.ts";
 import WelcomeIcons from "./WelcomeIcons.vue";
+import LoadLedger from "../LoadManagement/LoadLedger.vue";
+import SuperchargeModal from "../LoadManagement/SuperchargeModal.vue";
+import type { LoadState } from "@/types/supercharge";
 import { defineComponent, type PropType } from "vue";
 import type {
 	AuthProviders,
@@ -103,12 +117,15 @@ export default defineComponent({
 		HemsWarning,
 		TopHeader,
 		WelcomeIcons,
+		LoadLedger,
+		SuperchargeModal,
 	},
 	mixins: [formatter, collector],
 	props: {
 		selectedLoadpointId: String,
 
 		notifications: { type: Array as PropType<Notification[]>, default: () => [] },
+		supercharging: Object as PropType<LoadState>,
 		offline: Boolean,
 		setupRequired: Boolean,
 
@@ -199,6 +216,14 @@ export default defineComponent({
 		},
 	},
 	methods: {
+		openSupercharge(e: { index: number; title: string; active: boolean; until: string | null }) {
+			(this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal>).open(
+				e.index,
+				e.title,
+				e.active,
+				e.until
+			);
+		},
 		selectedLoadpointChanged(id: string | undefined) {
 			this.$router.push({ query: { lp: id } });
 		},

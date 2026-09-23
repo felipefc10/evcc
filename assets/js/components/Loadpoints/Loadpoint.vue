@@ -92,6 +92,14 @@
 			/>
 			<LoadpointSessionInfo v-bind="sessionInfoProps" />
 		</div>
+		<LoadpointLoadRow
+			v-if="loadManagement && loadState && loadState.enabled"
+			class="mb-3"
+			:lp="loadManagement"
+			:state="loadState"
+			@click.stop
+			@open-supercharge="$emit('open-supercharge', $event)"
+		/>
 		<hr class="divider" />
 		<Vehicle
 			class="flex-grow-1 d-flex flex-column justify-content-end"
@@ -122,6 +130,8 @@ import SettingsButton from "./SettingsButton.vue";
 import SettingsModal from "./SettingsModal.vue";
 import VehicleIcon from "../VehicleIcon";
 import SessionInfo from "./SessionInfo.vue";
+import LoadpointLoadRow from "../LoadManagement/LoadpointLoadRow.vue";
+import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 import { defineComponent, type PropType } from "vue";
 import type {
 	CHARGE_MODE,
@@ -148,12 +158,17 @@ export default defineComponent({
 		LabelAndValue,
 		LoadpointSettingsButton: SettingsButton,
 		LoadpointSessionInfo: SessionInfo,
+		LoadpointLoadRow,
 		VehicleIcon,
 	},
 	mixins: [formatter, collector],
 	props: {
 		id: { type: String, required: true },
 		single: Boolean,
+
+		// whole-house load management
+		loadManagement: Object as PropType<LoadLoadpoint>,
+		loadState: Object as PropType<LoadState>,
 
 		// main
 		title: String,
@@ -272,7 +287,7 @@ export default defineComponent({
 		rangePerSoc: Number,
 		socPerKwh: { type: Number, required: true },
 	},
-	emits: ["open-charging-plan-modal", "open-settings-modal"],
+	emits: ["open-charging-plan-modal", "open-settings-modal", "open-supercharge"],
 	data() {
 		return {
 			tickerHandler: null as Timeout,
