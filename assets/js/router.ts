@@ -125,6 +125,11 @@ export default function setupRouter(i18n: VueI18nInstance) {
         props: true,
       },
       {
+        path: "/load",
+        component: () => import("./views/LoadManagement.vue"),
+        props: (route) => ({ tab: (route.query["tab"] as string) || "overview" }),
+      },
+      {
         path: "/history",
         component: () => import("./views/History.vue"),
         props: (route) => {

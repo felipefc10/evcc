@@ -36,6 +36,9 @@
 					class="h-100"
 					:class="{ 'loadpoint-unselected': !selected(loadpoint.id) }"
 					@click="goTo(loadpoint.id)"
+					:loadManagement="loadManagementFor(loadpoint.id)"
+					:loadState="loadState"
+					@open-supercharge="$emit('open-supercharge', $event)"
 					@open-charging-plan-modal="openChargingPlanModal(loadpoint.id)"
 					@open-settings-modal="openSettingsModal(loadpoint.id)"
 				/>
@@ -87,6 +90,7 @@
 
 <script lang="ts">
 import "@h2d2/shopicons/es/filled/circle";
+import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 import "@h2d2/shopicons/es/bold/circle";
 import "@h2d2/shopicons/es/filled/lightning";
 
@@ -124,8 +128,9 @@ export default defineComponent({
 		batterySoc: Number,
 		batteryMode: String as PropType<BATTERY_MODE>,
 		forecast: Object as PropType<UiForecast>,
+		loadState: Object as PropType<LoadState>,
 	},
-	emits: ["id-changed"],
+	emits: ["id-changed", "open-supercharge"],
 	data() {
 		return {
 			snapTimeout: null as Timeout,
@@ -169,6 +174,9 @@ export default defineComponent({
 		this.$refs["carousel"]?.removeEventListener("scroll", this.handleCarouselScroll);
 	},
 	methods: {
+		loadManagementFor(id: string): LoadLoadpoint | undefined {
+			return this.loadState?.loadpoints?.find((lp) => lp.index === Number(id) - 1);
+		},
 		indexById(id: string | undefined) {
 			return this.loadpoints.findIndex((lp) => lp.id === id) || 0;
 		},

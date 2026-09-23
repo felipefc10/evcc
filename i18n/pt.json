@@ -1231,6 +1231,365 @@
     "title": "Reportar um problema",
     "version": "Versão"
   },
+  "loadManagement": {
+    "title": "Gestão de carga",
+    "loading": "A aguardar dados da gestão de carga…",
+    "houseLoad": "Carga da casa",
+    "cancel": "Cancelar",
+    "tabs": {
+      "overview": "Agora",
+      "settings": "Definições",
+      "bursts": "Picos",
+      "diagnostics": "Diagnóstico"
+    },
+    "phase": {
+      "off": "Desligada",
+      "standby": "Em espera",
+      "blind": "Contador sem leitura",
+      "burst": "Supercarga",
+      "base": "A equilibrar"
+    },
+    "status": {
+      "off": "A gestão de carga está desligada. Nada mantém a casa abaixo da linha de não-disparo.",
+      "notConfigured": "Nenhum contador configurado. Defina o endereço do contador nas Definições.",
+      "standby": "Nada está a carregar. O equilíbrio começa sozinho assim que um carro quiser carregar.",
+      "starting": "A iniciar, a primeira leitura do contador decide o que os carros podem ter.",
+      "burst": "Acima da linha de não-disparo de {line}, até {target}, enquanto durar o orçamento do pico.",
+      "noCar": "Nenhum carro está a consumir, a casa tem os {line} só para si.",
+      "charging": "{name} a {amps} A",
+      "stillDrawing": "{name} ainda a consumir {amps} A, pedido para parar",
+      "waiting": "{name} em espera (potência insuficiente para a sua prioridade)",
+      "under": "Abaixo da linha de {line}, sem risco de disparo.",
+      "over": "Acima da linha de {line} por {kva} kVA, a baixar."
+    },
+    "ledger": {
+      "line": "linha de não-disparo {kva} kVA",
+      "burst": "alvo de pico {kva} kVA",
+      "house": "Casa",
+      "free": "Livre",
+      "over": "Acima da linha por",
+      "noReading": "Ainda sem leitura do contador. A barra enche assim que o contador responder.",
+      "overclaim": "Os sensores dos carros indicam {kva} kVA mais do que o contador mede. O contador manda, por isso os carros são ajustados."
+    },
+    "patience": {
+      "title": "Paciência do contador gasta",
+      "clear": "0 % · contador a zero",
+      "banked": "{pct} % · {s} s acumulados",
+      "burstsStop": "picos param aos {pct} %",
+      "opens": "100 % · disjuntor dispara"
+    },
+    "supercharge": {
+      "label": "Supercarga",
+      "switchAria": "Supercarga {name}",
+      "on": "Supercarga ligada",
+      "onUntil": "{name} até às {time}",
+      "onForever": "{name} indefinidamente",
+      "stoodDown": "A supercarga desligou-se sozinha ({reason}). Desligue e ligue de novo para tentar outra vez.",
+      "until": "até às {time}",
+      "hours": "+{h} h",
+      "indefinitely": "Indefinidamente",
+      "indefinitelyShort": "indefinidamente",
+      "changeTime": "Alterar quando a supercarga termina",
+      "modalTitle": "Supercarga {name}",
+      "modalDescription": "Picos curtos acima da linha de não-disparo, dimensionados pela curva de disparo do contador. Depois o equilíbrio continua. Até quando?",
+      "day": "Dia",
+      "time": "Hora",
+      "today": "Hoje",
+      "tomorrow": "Amanhã",
+      "summaryUntil": "A supercarga desliga-se {time}.",
+      "summaryForever": "A supercarga fica ligada até a desligar.",
+      "inPast": "Essa hora já passou.",
+      "save": "Supercarregar",
+      "turnOff": "Desligar"
+    },
+    "reason": {
+      "notConnected": "Não ligado",
+      "stoodOff": "Tem corrente disponível e não a usa, em pausa durante {time}. A sua parte vai para o outro carro. Normalmente é o limite de carga do próprio carro.",
+      "notWanted": "Não está a carregar (modo, limite ou plano)",
+      "disabled": "A gestão de carga está desligada",
+      "standby": "A gestão de carga começa com o primeiro carregamento",
+      "pausedDrawing": "Em pausa, mas ainda a consumir {amps} A, a pedir de novo para parar",
+      "paused": "Em pausa, potência insuficiente para a sua prioridade",
+      "comingUp": "A subir para a sua parte",
+      "measured": "{amps} A medidos",
+      "sensorSays": "(o sensor indica {amps})",
+      "done": "termina por volta das {time} (em {duration})",
+      "nextChange": "próxima alteração em {s} s"
+    },
+    "row": {
+      "title": "Gestão de carga",
+      "allowed": "{a} A permitidos"
+    },
+    "card": {
+      "allowed": "Permitido",
+      "paused": "Em pausa",
+      "shares": "Divide por igual",
+      "order": "Carrega em {n}.º",
+      "priority": "Prioridade",
+      "priorityDown": "Baixar prioridade",
+      "priorityUp": "Subir prioridade",
+      "slowNote": "Este carregador reage devagar, por isso os seus picos terminam mais cedo e rendem menos.",
+      "car": "Carro",
+      "charge": "Carga",
+      "toGo": "Em falta",
+      "average": "Média",
+      "mode": "Modo",
+      "range": "Intervalo",
+      "measured": "Medido",
+      "pauses": "Pausas",
+      "src": {
+        "charger": "lido em direto do carregador",
+        "mqtt": "do seu feed MQTT",
+        "evcc": "do último ciclo do ponto de carga"
+      }
+    },
+    "stats": {
+      "budget": "Corrente a dividir",
+      "handedOut": "{a} A atribuídos",
+      "budgetHelp": "O que os carros podem consumir em conjunto para a casa ficar abaixo da linha.",
+      "trim": "Correção de entrega",
+      "trimAside": "fica de parte enquanto a supercarga está ligada",
+      "trimHelp": "Correção aprendida no contador para carros que ficam abaixo ou acima do valor pedido.",
+      "house": "Casa sem os carros",
+      "ofLine": "{pct} % da linha",
+      "houseHelp": "Leitura do contador menos o consumo dos carros.",
+      "average": "Média da sessão",
+      "vsLine": "{pct} % face à linha",
+      "averageHelp": "Potência aparente média desde que o equilíbrio começou.",
+      "bursts": "Picos",
+      "lastChanges": "o último usou {n} alterações de corrente",
+      "burstsHelp": "Picos nesta sessão. Um pico limpo custa duas alterações de corrente.",
+      "pauses": "Operações do contactor",
+      "pausesHelp": "Pausas nesta sessão. Cada uma é uma operação mecânica no carregador.",
+      "commands": "Comandos de corrente",
+      "commandsHelp": "Alterações de corrente enviadas nesta sessão.",
+      "window": "Janela de pico",
+      "windowHelp": "Quanto tempo um pico pode durar no alvo e ainda sobreviver a um salto de consumo da casa."
+    },
+    "settings": {
+      "general": "Instalação",
+      "enabled": "Gestão de carga da casa",
+      "enabledHelp": "Mantém a casa abaixo da linha de não-disparo e divide a potência pela prioridade dos pontos de carga. Desligada, nada o faz.",
+      "meterUri": "Endereço do contador",
+      "meterUriHelp": "Canal do Shelly EM, p. ex. http://192.168.1.10/emeter/0. Lido diretamente uma vez por segundo durante o equilíbrio.",
+      "saved": "Guardado",
+      "clamped": "Limitado a {value}",
+      "normalised": "Guardado como {value}",
+      "loadpoints": "Pontos de carga",
+      "loadpointsHelp": "Como cada carregador é medido. Prioridades, correntes e modos são definições do próprio ponto de carga.",
+      "fast": "Carregador rápido",
+      "fastHelp": "O carregador reage em cerca de um segundo e a sua corrente pode ser lida a cada segundo (p. ex. por MQTT).",
+      "measureTopic": "Feed de corrente (MQTT)",
+      "measureTopicHelp": "Tópico opcional com a corrente deste carro, p. ex. teslamate/cars/1/charger_actual_current.",
+      "measureUnit": "Unidade",
+      "tempTopic": "Temperatura do carregador (MQTT)",
+      "tempTopicHelp": "Tópico opcional com a temperatura do carregador em °C. Os picos param acima do limite.",
+      "tiles": {
+        "expected": "Potência média esperada",
+        "gain": "face à linha de não-disparo",
+        "window": "Janela de pico",
+        "budget": "Orçamento de proximidade por pico"
+      },
+      "groups": {
+        "burst": {
+          "title": "Supercarga",
+          "subtitle": "O tamanho de um pico e o que tem de aguentar"
+        },
+        "control": {
+          "title": "Controlo",
+          "subtitle": "Quando um pico desiste e quão depressa o ciclo corrige"
+        },
+        "thrift": {
+          "title": "Poupança do contactor e salvaguardas",
+          "subtitle": "Aguentar quebras, e o que acontece quando o contador se cala"
+        }
+      },
+      "fields": {
+        "contractKva": {
+          "label": "Potência contratada",
+          "help": "Potência aparente contratada."
+        },
+        "k": {
+          "label": "Fator de não-disparo k",
+          "help": "O contador nunca dispara a ou abaixo de k × potência contratada (1,2 por omissão)."
+        },
+        "q": {
+          "label": "Curva de disparo Q",
+          "help": "Constante de atraso da curva do contador Tdisp = Q / (S/SC − k)."
+        },
+        "burstKva": {
+          "label": "Alvo do pico",
+          "help": "Potência aparente mantida na casa durante um pico."
+        },
+        "bumpKva": {
+          "label": "Margem de consumo da casa",
+          "help": "Um salto súbito de consumo que o pico tem de aguentar no pior momento."
+        },
+        "marginS": {
+          "label": "Margem de reação",
+          "help": "Segundos que sobram para reagir depois desse salto. Menos significa picos mais longos e menos margem."
+        },
+        "resetS": {
+          "label": "Tempo de arrefecimento",
+          "help": "Quanto tempo a casa tem de estar abaixo da linha antes do próximo pico."
+        },
+        "baseMarginKva": {
+          "label": "Margem de segurança base",
+          "help": "Quanto abaixo da linha de não-disparo o equilíbrio aponta."
+        },
+        "exitLeadFrac": {
+          "label": "Antecipação da saída",
+          "help": "Fração do tempo de descida pela qual a saída do pico é antecipada."
+        },
+        "maxTempC": {
+          "label": "Sem picos acima de",
+          "help": "Temperatura do carregador acima da qual os picos param. O equilíbrio continua."
+        },
+        "maxCloseness": {
+          "label": "Abortar à proximidade",
+          "help": "Aborto forçado de um pico quando esta fração da paciência do contador é gasta."
+        },
+        "trimMaxA": {
+          "label": "Limite da correção de entrega",
+          "help": "Maior correção que a correção de entrega pode aplicar. 0 desativa."
+        },
+        "ampMin": {
+          "label": "Corrente mínima de recurso",
+          "help": "Usada só quando um ponto de carga não indica mínimo."
+        },
+        "ampMax": {
+          "label": "Corrente máxima de recurso",
+          "help": "Usada só quando um ponto de carga não indica máximo."
+        },
+        "raiseTable": {
+          "label": "Cadência de subida",
+          "help": "Linhas amperes:segundos, quanto tempo uma subida tem de estar pendente antes de ser enviada."
+        },
+        "reduceTable": {
+          "label": "Cadência de descida",
+          "help": "Linhas amperes:segundos para descidas. Emergências nunca esperam."
+        },
+        "floorDwellS": {
+          "label": "Manter no mínimo durante",
+          "help": "Uma quebra abaixo do mínimo de um carro é aguentada este tempo antes de o pausar."
+        },
+        "restartDwellS": {
+          "label": "Esperar antes de retomar",
+          "help": "Depois de uma pausa, esperar pelo menos este tempo antes de retomar o carro."
+        },
+        "baseAbortCloseness": {
+          "label": "Reduzir à proximidade",
+          "help": "No equilíbrio, todos os carros vão ao mínimo a esta proximidade."
+        },
+        "baseStopCloseness": {
+          "label": "Parar à proximidade",
+          "help": "No equilíbrio, todos os carros param a esta proximidade."
+        },
+        "baseTiAbortS": {
+          "label": "Segundos acumulados antes de reduzir",
+          "help": "Segundos acima da linha no equilíbrio antes de todos os carros irem ao mínimo."
+        },
+        "baseTiStopS": {
+          "label": "Segundos acumulados antes de parar",
+          "help": "Segundos acima da linha no equilíbrio antes de todos os carros pararem."
+        },
+        "blindHoldPolls": {
+          "label": "Leituras falhadas antes de manter",
+          "help": "Leituras do contador falhadas antes de os carros ficarem no mínimo."
+        },
+        "blindPolls": {
+          "label": "Leituras falhadas antes de parar",
+          "help": "Leituras do contador falhadas antes de aplicar a ação sem leitura."
+        },
+        "blindAction": {
+          "label": "Quando o contador continua sem leitura",
+          "help": "Parar todos os carros, ou manter um a carregar com corrente fixa.",
+          "options": {
+            "stop": "Parar de carregar",
+            "hold": "Manter corrente fixa"
+          }
+        },
+        "blindHoldA": {
+          "label": "Corrente a manter sem leitura",
+          "help": "Corrente do único carro que continua a carregar enquanto o contador está sem leitura."
+        }
+      }
+    },
+    "bursts": {
+      "title": "Histórico de picos",
+      "count": "{n} picos",
+      "refresh": "Atualizar",
+      "none": "Ainda sem picos.",
+      "at": "Hora",
+      "loadpoint": "Ponto de carga",
+      "lasted": "Durou",
+      "peak": "Máximo",
+      "closeness": "Proximidade",
+      "changes": "Alterações",
+      "exit": "Terminou por",
+      "help": "Um pico limpo custa duas alterações de corrente e termina no prazo. Tudo o resto merece atenção.",
+      "exits": {
+        "deadline": {
+          "label": "Prazo",
+          "help": "Gastou o orçamento previsto e voltou a descer. Nada correu mal."
+        },
+        "bump_margin": {
+          "label": "Margem de salto",
+          "help": "A potência medida ficou acima do previsto para o pico."
+        },
+        "closeness": {
+          "label": "Aborto por proximidade",
+          "help": "Aborto forçado: a proximidade passou o teto."
+        },
+        "meter_blind": {
+          "label": "Contador sem leitura",
+          "help": "O contador deixou de responder."
+        },
+        "no_draw": {
+          "label": "Sem consumo",
+          "help": "O carro nunca pegou na corrente."
+        },
+        "icp_alarm": {
+          "label": "Alarme ICP",
+          "help": "Um alarme independente assim o indicou."
+        }
+      }
+    },
+    "diagnostics": {
+      "selftest": "Autoteste",
+      "run": "Executar autoteste",
+      "download": "Descarregar diagnóstico",
+      "notRun": "O autoteste corre sozinho pouco depois do arranque.",
+      "failed": "{n} falharam · {when}",
+      "passed": "passou · {when}",
+      "sensors": "Sensores",
+      "sensorsHelp": "O contador manda. As leituras dos carros são indicações de parte dele e são reduzidas quando somam mais.",
+      "meter": "Contador",
+      "watts": "Potência ativa",
+      "vars": "Potência reativa",
+      "volts": "Tensão",
+      "latency": "Latência do contador",
+      "floor": "Mínimo da casa",
+      "floorHelp": "O mínimo que se assume que a casa consome, aprendido de leituras em repouso.",
+      "claim": "Carros indicado / creditado",
+      "claimHelp": "O que os sensores dos carros indicaram face ao que o contador permitiu.",
+      "disagreements": "Desacordos com o contador",
+      "sourceOhm": "Resistência da alimentação",
+      "sourceOhmHelp": "Aprendida dos picos: quanto a tensão cai com carga.",
+      "voltsAtGoal": "Tensão no alvo do pico",
+      "temp": "Temperatura do carregador",
+      "peak": "Pior proximidade",
+      "peakBlind": "Atingida com o contador sem leitura, é uma suposição e não uma medição.",
+      "learned": "Comportamento aprendido",
+      "learnedHelp": "Medido por carregador e carro, propositadamente pessimista. Nada é usado antes de quatro observações.",
+      "nothingLearned": "Ainda nada aprendido.",
+      "pair": "Carregador · carro",
+      "rampDown": "Descida",
+      "latencyDown": "Latência de descida",
+      "latencyUp": "Latência de subida",
+      "entryOffset": "Correção de entrada"
+    }
+  },
   "log": {
     "areaLabel": "Filtrar por área",
     "areas": "Todas as áreas",
@@ -1770,6 +2129,7 @@
     "charge": "Carga",
     "comingSoon": "Esta página está em construção.",
     "forecast": "Previsão",
+    "load": "Carga",
     "more": "Mais",
     "sessions": "Sessões"
   }

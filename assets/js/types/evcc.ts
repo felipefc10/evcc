@@ -1,3 +1,5 @@
+import type { LoadConfig, LoadState } from "./supercharge";
+
 // Source of truth for the state API schema (scripts/state-schema). When adding
 // or changing state types: add a JSDoc description and run `npm run openapi` to
 // regenerate server/openapi.state.yaml and server/mcp/openapi.json.
@@ -158,6 +160,10 @@ export type Statistics = Record<StatisticsPeriod, StatisticsData>;
 export interface State {
   /** @internal */
   offline: boolean;
+  /** Whole-house load management state (never-trip line and supercharging). */
+  supercharging?: LoadState;
+  /** Whole-house load management configuration. */
+  superchargingConfig?: LoadConfig;
   /** Telemetry is enabled. */
   telemetry?: boolean;
   /** Experimental UI features are enabled. */

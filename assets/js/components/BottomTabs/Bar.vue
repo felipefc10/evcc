@@ -18,6 +18,10 @@
 				/>
 			</Item>
 
+			<Item v-if="loadManagementActive" to="/load" :label="$t('tabBar.load')">
+				<LoadGaugeIcon class="tab-icon" />
+			</Item>
+
 			<Item to="/forecast" :label="$t('tabBar.forecast')">
 				<ForecastGraphIcon class="tab-icon" />
 			</Item>
@@ -47,11 +51,13 @@
 import "@h2d2/shopicons/es/regular/lightning";
 import ForecastGraphIcon from "../MaterialIcon/ForecastGraph.vue";
 import SessionsIcon from "../MaterialIcon/Sessions.vue";
+import LoadGaugeIcon from "../MaterialIcon/LoadGauge.vue";
 import BatteryIcon from "../Energyflow/BatteryIcon.vue";
 import Item from "./Item.vue";
 import MoreItem from "./MoreItem.vue";
 import { defineComponent, type PropType } from "vue";
 import type { FatalError, Sponsor, AuthProviders, Battery, Vehicle } from "@/types/evcc";
+import type { LoadState } from "@/types/supercharge";
 
 export default defineComponent({
 	name: "BottomTabBar",
@@ -59,6 +65,7 @@ export default defineComponent({
 		BatteryIcon,
 		ForecastGraphIcon,
 		SessionsIcon,
+		LoadGaugeIcon,
 		Item,
 		MoreItem,
 	},
@@ -78,6 +85,7 @@ export default defineComponent({
 		installed: String,
 		availableVersion: String,
 		customBrand: String,
+		supercharging: { type: Object as PropType<LoadState> },
 	},
 	computed: {
 		hidden() {
@@ -89,11 +97,14 @@ export default defineComponent({
 		batteryHold() {
 			return this.batteryMode === "hold";
 		},
+		loadManagementActive(): boolean {
+			return !!this.supercharging && (this.supercharging.enabled || this.supercharging.configured);
+		},
 		batteryConfigured() {
 			return (this.battery?.devices?.length ?? 0) > 0;
 		},
 		moreActive() {
-			const mainTabs = ["/", "/battery", "/forecast", "/sessions"];
+			const mainTabs = ["/", "/battery", "/load", "/forecast", "/sessions"];
 			return !mainTabs.includes(this.$route.path);
 		},
 	},
