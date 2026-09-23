@@ -136,3 +136,8 @@ func (lp *Loadpoint) superchargeClamp(current float64) float64 {
 
 	return lp.sc.Clamp(lp.scName, current, minC, enabled, offered)
 }
+
+// superchargeOwns reports whether whole-house load management is balancing this loadpoint
+func (lp *Loadpoint) superchargeOwns() bool {
+	return lp.sc != nil && lp.sc.Owns()
+}

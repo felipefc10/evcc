@@ -292,6 +292,15 @@ func (m *Manager) Enabled() bool {
 	return m.cfg.Enabled
 }
 
+// Owns reports whether the control loop is balancing right now and answering.
+// While it does, it is the whole-house limit and evcc's own circuit limits step aside;
+// otherwise they keep holding the house as they would without load management.
+func (m *Manager) Owns() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.cfg.Enabled && m.armed && m.running && time.Since(m.heartbeat) <= heartbeatS*time.Second
+}
+
 // Clamp is called by a loadpoint for every current it is about to apply on its own cycle.
 // It returns the current the loadpoint may actually apply.
 func (m *Manager) Clamp(name string, current, minA float64, enabled bool, offered float64) float64 {
