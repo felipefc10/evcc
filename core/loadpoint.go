@@ -1007,8 +1007,8 @@ func (lp *Loadpoint) setLimit(current float64) error {
 func (lp *Loadpoint) applyLimit(current float64) error {
 	current = lp.roundedCurrent(current)
 
-	// apply circuit limits
-	if lp.circuit != nil {
+	// apply circuit limits, unless whole-house load management is balancing
+	if lp.circuit != nil && !lp.superchargeOwns() {
 		currentLimit := lp.circuit.ValidateCurrent(lp.actualMaxChargeCurrent(), current)
 
 		activePhases := lp.ActivePhases()
