@@ -1464,6 +1464,10 @@
         }
       },
       "fields": {
+        "failsafeA": {
+          "label": "Grenze wenn aus",
+          "help": "Maximaler Strom jedes Ladepunkts, solange das Lastmanagement ausgeschaltet ist. 0 bedeutet keine Grenze."
+        },
         "contractKva": {
           "label": "Vertragsleistung",
           "help": "Vertraglich vereinbarte Scheinleistung des Anschlusses."

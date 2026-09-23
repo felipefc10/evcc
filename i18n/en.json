@@ -1464,6 +1464,10 @@
         }
       },
       "fields": {
+        "failsafeA": {
+          "label": "Limit while off",
+          "help": "Maximum current of every loadpoint while load management is switched off. Keeps the house safe if you switch it off. 0 means no limit."
+        },
         "contractKva": {
           "label": "Contracted power",
           "help": "Contracted apparent power of the supply."

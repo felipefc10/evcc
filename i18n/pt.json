@@ -1405,6 +1405,10 @@
         }
       },
       "fields": {
+        "failsafeA": {
+          "label": "Limite quando desligado",
+          "help": "Corrente máxima de cada ponto de carregamento enquanto a gestão de carga está desligada. 0 significa sem limite."
+        },
         "contractKva": {
           "label": "Potência contratada",
           "help": "Potência aparente contratada."

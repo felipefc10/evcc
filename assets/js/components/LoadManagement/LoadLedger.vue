@@ -354,15 +354,7 @@ export default defineComponent({
 			return kva / this.scaleMax > 0.12 ? this.fmtKva(kva) : "";
 		},
 		fmtUntil(iso: string): string {
-			const d = new Date(iso);
-			const soon = d.getTime() - Date.now() < 18 * 3600 * 1000;
-			return soon
-				? d.toLocaleTimeString(this.$i18n.locale, { hour: "2-digit", minute: "2-digit" })
-				: d.toLocaleString(this.$i18n.locale, {
-						weekday: "short",
-						hour: "2-digit",
-						minute: "2-digit",
-					});
+			return this.fmtAbsoluteDate(new Date(iso));
 		},
 	},
 });

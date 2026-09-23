@@ -204,7 +204,7 @@ export default defineComponent({
 			return (this.lm?.loadpoints || []).filter((lp) => lp.priority === priority).length > 1;
 		},
 		openSupercharge(e: { index: number; title: string; active: boolean; until: string | null }) {
-			(this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal>).open(
+			(this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal> | undefined)?.open(
 				e.index,
 				e.title,
 				e.active,
