@@ -177,6 +177,7 @@ export interface LoadLpConfig {
   measureTopic: string;
   measureUnit: "A" | "W";
   tempTopic: string;
+  maxTopic: string;
 }
 
 export interface LoadConfig {
