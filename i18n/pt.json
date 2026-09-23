@@ -1384,6 +1384,8 @@
       "measureUnit": "Unidade",
       "tempTopic": "Temperatura do carregador (MQTT)",
       "tempTopicHelp": "Tópico opcional com a temperatura do carregador em °C. Os picos param acima do limite.",
+      "maxTopic": "Máximo do carro (MQTT)",
+      "maxTopicHelp": "Tópico opcional com a corrente máxima que o carro aceita neste momento, p. ex. teslamate/cars/1/charge_current_request_max. Nada é planeado acima dela.",
       "tiles": {
         "expected": "Potência média esperada",
         "gain": "face à linha de não-disparo",

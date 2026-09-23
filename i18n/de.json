@@ -1443,6 +1443,8 @@
       "measureUnit": "Einheit",
       "tempTopic": "Ladertemperatur (MQTT)",
       "tempTopicHelp": "Optionales Topic mit der Ladertemperatur in °C. Über dem Limit enden Boosts.",
+      "maxTopic": "Fahrzeug-Maximum (MQTT)",
+      "maxTopicHelp": "Optionales Topic mit dem höchsten Strom, den das Fahrzeug gerade annimmt, z. B. teslamate/cars/1/charge_current_request_max. Darüber wird nichts geplant.",
       "tiles": {
         "expected": "Erwartete mittlere Leistung",
         "gain": "gegenüber der Auslöseschwelle",

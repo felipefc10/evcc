@@ -1443,6 +1443,8 @@
       "measureUnit": "Unit",
       "tempTopic": "Charger temperature (MQTT)",
       "tempTopicHelp": "Optional topic publishing the charger temperature in °C. Bursting stops above the limit.",
+      "maxTopic": "Car maximum (MQTT)",
+      "maxTopicHelp": "Optional topic publishing the most current the car accepts right now, e.g. teslamate/cars/1/charge_current_request_max. Nothing is planned above it.",
       "tiles": {
         "expected": "Expected average power",
         "gain": "vs. never-trip line",

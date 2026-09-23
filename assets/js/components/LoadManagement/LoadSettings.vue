@@ -179,6 +179,21 @@
 						"
 					/>
 				</SettingsFormRow>
+				<SettingsFormRow
+					:id="`lm-max-${lp.index}`"
+					:label="$t('loadManagement.settings.maxTopic')"
+					:description="$t('loadManagement.settings.maxTopicHelp')"
+				>
+					<input
+						:id="`lm-max-${lp.index}`"
+						class="form-control font-monospace"
+						type="text"
+						:value="lpConfig(lp.name).maxTopic"
+						@change="
+							saveLp(lp.name, { maxTopic: ($event.target as HTMLInputElement).value })
+						"
+					/>
+				</SettingsFormRow>
 				<Feedback :msg="feedback[`lp-${lp.name}`]" />
 			</div>
 		</Card>
@@ -321,6 +336,7 @@ export default defineComponent({
 					measureTopic: "",
 					measureUnit: "A",
 					tempTopic: "",
+					maxTopic: "",
 				}
 			);
 		},
