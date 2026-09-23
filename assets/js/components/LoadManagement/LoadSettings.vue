@@ -34,7 +34,7 @@
 				v-for="f in curveFields"
 				:key="f.key"
 				:field="f"
-				:value="config[f.key as 'q' | 'k' | 'contractKva']"
+				:value="config[f.key as 'q' | 'k' | 'contractKva' | 'failsafeA']"
 				:feedback="feedback[f.key]"
 				@change="(v: number) => save({ [f.key]: v }, f.key, v)"
 			/>
@@ -243,6 +243,7 @@ export default defineComponent({
 				{ key: "contractKva", unit: "kVA", min: 1, max: 20, step: 0.05, digits: 2 },
 				{ key: "k", unit: "×", min: 1, max: 2, step: 0.01, digits: 2 },
 				{ key: "q", unit: "", min: 1, max: 200, step: 1, digits: 0 },
+				{ key: "failsafeA", unit: "A", min: 0, max: 32, step: 1, digits: 0 },
 			];
 		},
 		groups(): { id: string; fields: Field[] }[] {

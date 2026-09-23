@@ -55,7 +55,7 @@
 					<button
 						type="button"
 						class="btn btn-sm btn-outline-secondary"
-						:disabled="priority >= 10 || saving"
+						:disabled="priority >= priorityMax || saving"
 						:aria-label="$t('loadManagement.card.priorityUp')"
 						@click="setPriority(priority + 1)"
 					>
@@ -100,6 +100,9 @@ export default defineComponent({
 		priority(): number {
 			return this.pending ?? this.lp.priority;
 		},
+		priorityMax(): number {
+			return Math.max(10, this.lp.priority);
+		},
 		orderLabel(): string {
 			if (this.total < 2) return "";
 			if (this.tied) return this.$t("loadManagement.card.shares");
@@ -110,11 +113,7 @@ export default defineComponent({
 				t: (k, v) => this.$t(k, v || {}),
 				number: (n, d) => this.fmtNumber(n, d),
 				duration: (s) => (s < 90 ? `${Math.round(s)} s` : this.fmtDurationLong(s, "short")),
-				time: (iso) =>
-					new Date(iso).toLocaleTimeString(this.$i18n.locale, {
-						hour: "2-digit",
-						minute: "2-digit",
-					}),
+				time: (iso) => this.fmtAbsoluteDate(new Date(iso)),
 			});
 		},
 		warning(): boolean {

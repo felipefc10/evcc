@@ -181,6 +181,7 @@ export interface LoadLpConfig {
 
 export interface LoadConfig {
   enabled: boolean;
+  failsafeA: number;
   meterUri: string;
   q: number;
   k: number;
