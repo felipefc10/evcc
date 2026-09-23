@@ -75,6 +75,22 @@
 					:class="`opacity-${showChargingIndicator ? '100' : '0'}`"
 				/>
 			</div>
+			<div v-if="lmOn" class="allowed d-flex flex-column align-items-center">
+				<LabelAndValue
+					:label="allowedLabel"
+					:value="allowedValue"
+					align="center"
+					data-testid="loadpoint-allowed"
+				/>
+				<SuperchargePill
+					class="mt-1"
+					:index="loadManagement!.index"
+					:title="loadManagement!.title"
+					:active="loadManagement!.supercharge"
+					:until="loadManagement!.superchargeUntil"
+					@open="$emit('open-supercharge', $event)"
+				/>
+			</div>
 			<LabelAndValue
 				v-if="integratedDevice"
 				:label="$t('main.loadpoint.todayEnergy')"
@@ -88,18 +104,10 @@
 				:label="$t('main.loadpoint.charged')"
 				:value="chargedEnergy"
 				:valueFmt="fmtEnergy"
-				align="center"
+				:align="lmOn ? 'end' : 'center'"
 			/>
-			<LoadpointSessionInfo v-bind="sessionInfoProps" />
+			<LoadpointSessionInfo v-if="!lmOn" v-bind="sessionInfoProps" />
 		</div>
-		<LoadpointLoadRow
-			v-if="loadManagement && loadState && loadState.enabled"
-			class="mb-3"
-			:lp="loadManagement"
-			:state="loadState"
-			@click.stop
-			@open-supercharge="$emit('open-supercharge', $event)"
-		/>
 		<hr class="divider" />
 		<Vehicle
 			class="flex-grow-1 d-flex flex-column justify-content-end"
@@ -130,7 +138,7 @@ import SettingsButton from "./SettingsButton.vue";
 import SettingsModal from "./SettingsModal.vue";
 import VehicleIcon from "../VehicleIcon";
 import SessionInfo from "./SessionInfo.vue";
-import LoadpointLoadRow from "../LoadManagement/LoadpointLoadRow.vue";
+import SuperchargePill from "../LoadManagement/SuperchargePill.vue";
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 import { defineComponent, type PropType } from "vue";
 import type {
@@ -158,7 +166,7 @@ export default defineComponent({
 		LabelAndValue,
 		LoadpointSettingsButton: SettingsButton,
 		LoadpointSessionInfo: SessionInfo,
-		LoadpointLoadRow,
+		SuperchargePill,
 		VehicleIcon,
 	},
 	mixins: [formatter, collector],
@@ -309,6 +317,20 @@ export default defineComponent({
 		},
 		loadpointTitle() {
 			return this.title || this.$t("main.loadpoint.fallbackName");
+		},
+		// whole-house load management adds what this loadpoint is allowed and supercharge
+		lmOn(): boolean {
+			return !!(this.loadManagement && this.loadState && this.loadState.enabled);
+		},
+		allowedValue(): string {
+			const lm = this.loadManagement;
+			if (!lm || !this.loadState?.running || !lm.wants) return "—";
+			return lm.paused ? this.$t("loadManagement.card.paused") : `${lm.setpointA} A`;
+		},
+		allowedLabel(): string {
+			const lm = this.loadManagement;
+			const allowed = this.$t("loadManagement.card.allowed");
+			return lm ? `${allowed} · ${this.$t("loadManagement.order.prio")} ${lm.priority}` : allowed;
 		},
 		integratedDevice() {
 			return this.chargerFeatureIntegratedDevice;

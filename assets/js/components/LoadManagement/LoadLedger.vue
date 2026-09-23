@@ -1,17 +1,15 @@
 <template>
 	<div class="load-ledger" data-testid="load-ledger">
-		<div class="d-flex align-items-start justify-content-between gap-3">
-			<div class="min-w-0">
-				<div class="hero">
-					<span class="hero-value">{{ heroValue }}</span>
-					<span class="hero-unit">kVA</span>
-				</div>
-				<p class="status mb-0" data-testid="load-status">{{ statusSentence }}</p>
-				<p v-if="superchargeLine" class="text-muted small mb-0">{{ superchargeLine }}</p>
+		<div class="min-w-0">
+			<div class="eyebrow">{{ $t("loadManagement.houseLoad") }}</div>
+			<div class="hero">
+				<span class="hero-value">{{ heroValue }}</span>
+				<span class="hero-unit">{{
+					$t("loadManagement.ledger.ofLine", { kva: fmtKva(state.thresholdKva) })
+				}}</span>
 			</div>
-			<span class="badge rounded-pill phase-badge flex-shrink-0" :class="phaseClass">
-				{{ phaseLabel }}
-			</span>
+			<p class="status mb-0" data-testid="load-status">{{ statusSentence }}</p>
+			<p v-if="superchargeLine" class="text-muted small mb-0 mt-1">{{ superchargeLine }}</p>
 		</div>
 
 		<div class="ledger mt-4" :class="{ 'ledger--burst': showBurstTick }">
@@ -24,7 +22,6 @@
 					:style="{ width: seg.width, background: seg.color }"
 					:title="seg.title"
 				>
-					<span v-if="seg.label" class="ledger-seg-label">{{ seg.label }}</span>
 				</div>
 			</div>
 			<div
@@ -45,21 +42,21 @@
 			</div>
 		</div>
 
-		<div v-if="!compact" class="legend d-flex flex-wrap gap-3 mt-3 small">
+		<div class="legend d-flex flex-wrap gap-3 mt-3 small">
 			<span v-for="item in legend" :key="item.id" class="d-inline-flex align-items-center gap-1">
 				<span class="swatch" :class="item.cls" :style="{ background: item.color }"></span>
 				<span class="text-muted">{{ item.name }}</span>
 				<strong>{{ item.value }}</strong>
 			</span>
 		</div>
-		<p v-if="!compact && overclaimNote" class="small text-warning mt-2 mb-0">
+		<p v-if="overclaimNote" class="small text-warning mt-2 mb-0">
 			{{ overclaimNote }}
 		</p>
 
-		<div class="patience mt-4" data-testid="load-patience">
-			<div class="d-flex justify-content-between small mb-1">
+		<div class="patience mt-4 pt-4" data-testid="load-patience">
+			<div class="d-flex justify-content-between flex-wrap gap-2 small mb-2">
 				<span class="fw-bold">{{ $t("loadManagement.patience.title") }}</span>
-				<span>{{ patienceLabel }}</span>
+				<span class="text-muted">{{ patienceLabel }} · {{ $t("loadManagement.patience.opensAt") }}</span>
 			</div>
 			<div class="gauge">
 				<div
@@ -74,12 +71,11 @@
 					:title="$t('loadManagement.patience.burstsStop', { pct: plannedPct })"
 				></div>
 			</div>
-			<div class="d-flex justify-content-between small text-muted mt-1">
-				<span v-if="state.burstArmed && state.plannedCloseness > 0">
-					{{ $t("loadManagement.patience.burstsStop", { pct: plannedPct }) }}
-				</span>
-				<span v-else></span>
-				<span>{{ $t("loadManagement.patience.opens") }}</span>
+			<div
+				v-if="state.burstArmed && state.plannedCloseness > 0"
+				class="small text-muted mt-1"
+			>
+				{{ $t("loadManagement.patience.burstsStop", { pct: plannedPct }) }}
 			</div>
 		</div>
 	</div>
@@ -96,7 +92,6 @@ interface Segment {
 	width: string;
 	color: string;
 	cls: string;
-	label: string;
 	title: string;
 }
 
@@ -108,7 +103,6 @@ export default defineComponent({
 	mixins: [formatter],
 	props: {
 		state: { type: Object as PropType<LoadState>, required: true },
-		compact: Boolean,
 	},
 	computed: {
 		volts(): number {
@@ -171,7 +165,6 @@ export default defineComponent({
 					width: w(this.house),
 					color: "",
 					cls: "ledger-seg--house",
-					label: this.segLabel(this.house),
 					title: `${this.$t("loadManagement.ledger.house")} ${this.fmtKva(this.house)} kVA`,
 				},
 			];
@@ -181,7 +174,6 @@ export default defineComponent({
 					width: w(c.kva),
 					color: c.color,
 					cls: "",
-					label: this.segLabel(c.kva),
 					title: `${c.name} ${this.fmtKva(c.kva)} kVA · ${this.fmtNumber(c.amps, 1)} A`,
 				});
 			}
@@ -191,7 +183,6 @@ export default defineComponent({
 					width: w(this.free),
 					color: "",
 					cls: "ledger-seg--free",
-					label: "",
 					title: `${this.$t("loadManagement.ledger.free")} ${this.fmtKva(this.free)} kVA`,
 				});
 			}
@@ -210,20 +201,12 @@ export default defineComponent({
 				...this.scaledCars.map((c) => ({
 					id: c.id,
 					name: c.name,
-					value: `${this.fmtKva(c.kva)} kVA · ${this.fmtNumber(c.amps, 1)} A`,
+					value: `${this.fmtKva(c.kva)} kVA`,
 					color: c.color,
 					cls: "",
 				})),
 			];
-			if (this.free > 0.01) {
-				res.push({
-					id: "free",
-					name: this.$t("loadManagement.ledger.free"),
-					value: `${this.fmtKva(this.free)} kVA`,
-					color: "",
-					cls: "swatch--free",
-				});
-			} else {
+			if (this.total > this.state.thresholdKva) {
 				res.push({
 					id: "over",
 					name: this.$t("loadManagement.ledger.over"),
@@ -247,20 +230,6 @@ export default defineComponent({
 		},
 		blind(): boolean {
 			return this.state.running && this.state.blind > 0;
-		},
-		phaseLabel(): string {
-			if (!this.state.enabled) return this.$t("loadManagement.phase.off");
-			if (!this.state.running) return this.$t("loadManagement.phase.standby");
-			if (this.blind) return this.$t("loadManagement.phase.blind");
-			if (this.state.phase === "burst") return this.$t("loadManagement.phase.burst");
-			return this.$t("loadManagement.phase.base");
-		},
-		phaseClass(): string {
-			if (!this.state.enabled) return "text-bg-danger";
-			if (!this.state.running) return "text-bg-secondary";
-			if (this.blind) return "text-bg-warning";
-			if (this.state.phase === "burst") return "phase-badge--burst";
-			return "text-bg-success";
 		},
 		statusSentence(): string {
 			const s = this.state;
@@ -350,9 +319,6 @@ export default defineComponent({
 		fmtKva(kva: number): string {
 			return this.fmtNumber(kva || 0, 2);
 		},
-		segLabel(kva: number): string {
-			return kva / this.scaleMax > 0.12 ? this.fmtKva(kva) : "";
-		},
 		fmtUntil(iso: string): string {
 			return this.fmtAbsoluteDate(new Date(iso));
 		},
@@ -364,6 +330,14 @@ export default defineComponent({
 .min-w-0 {
 	min-width: 0;
 }
+.eyebrow {
+	font-size: 0.75rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--evcc-gray);
+	margin-bottom: 0.35rem;
+}
 .hero {
 	display: flex;
 	align-items: baseline;
@@ -371,8 +345,8 @@ export default defineComponent({
 	line-height: 1.1;
 }
 .hero-value {
-	font-size: 2.5rem;
-	font-weight: 700;
+	font-size: 3rem;
+	font-weight: 800;
 	font-variant-numeric: tabular-nums;
 }
 .hero-unit {
@@ -382,9 +356,8 @@ export default defineComponent({
 .status {
 	margin-top: 0.5rem;
 }
-.phase-badge--burst {
-	background-color: var(--evcc-orange);
-	color: var(--bs-dark);
+.patience {
+	border-top: 1px solid var(--evcc-gray-25);
 }
 .ledger {
 	position: relative;
@@ -411,10 +384,6 @@ export default defineComponent({
 	color: var(--bs-dark);
 	transition: width var(--evcc-transition-medium) linear;
 	font-variant-numeric: tabular-nums;
-}
-.ledger-seg-label {
-	margin: 0 0.2rem;
-	overflow: hidden;
 }
 .ledger-seg--house {
 	background-color: var(--evcc-grid);
