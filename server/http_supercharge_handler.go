@@ -15,8 +15,9 @@ import (
 
 const superchargeBodyLimit = 1 << 20
 
-// RegisterSuperchargeHandlers connects the whole-house load management api
-func (s *HTTPd) RegisterSuperchargeHandlers(m *supercharge.Manager) {
+// RegisterSuperchargeHandlers connects the whole-house load management api.
+// Changing the installation or its tuning needs the admin login, like evcc's own configuration.
+func (s *HTTPd) RegisterSuperchargeHandlers(m *supercharge.Manager, ensureAuth mux.MiddlewareFunc) {
 	if m == nil {
 		return
 	}
@@ -29,12 +30,12 @@ func (s *HTTPd) RegisterSuperchargeHandlers(m *supercharge.Manager) {
 	routes := map[string]route{
 		"state":       {"GET", "", superchargeStateHandler(m)},
 		"config":      {"GET", "/config", superchargeConfigHandler(m)},
-		"setconfig":   {"POST", "/config", superchargeUpdateConfigHandler(m)},
+		"setconfig":   {"POST", "/config", ensureAuth(superchargeUpdateConfigHandler(m)).ServeHTTP},
 		"supercharge": {"POST", "/loadpoints/{id:[0-9]+}/supercharge", superchargeLoadpointHandler(m)},
 		"bursts":      {"GET", "/bursts", superchargeBurstsHandler(m)},
 		"diagnostics": {"GET", "/diagnostics", superchargeDiagnosticsHandler(m)},
 		"selftest":    {"POST", "/selftest", superchargeSelftestHandler(m)},
-		"import":      {"POST", "/import", superchargeImportHandler(m)},
+		"import":      {"POST", "/import", ensureAuth(superchargeImportHandler(m)).ServeHTTP},
 	}
 
 	for _, r := range routes {
