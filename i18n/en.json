@@ -1328,14 +1328,16 @@
       "free": "Free",
       "over": "Over the line by",
       "noReading": "No meter reading yet. The bar fills as soon as the meter answers.",
-      "overclaim": "The car sensors claim {kva} kVA more than the meter measures. The meter is master, so the cars are scaled to fit."
+      "overclaim": "The car sensors claim {kva} kVA more than the meter measures. The meter is master, so the cars are scaled to fit.",
+      "ofLine": "/ {kva} kVA"
     },
     "patience": {
       "title": "Meter patience used",
       "clear": "0 % · counter clear",
       "banked": "{pct} % · {s} s banked",
       "burstsStop": "bursts stop at {pct} %",
-      "opens": "100 % · breaker opens"
+      "opens": "100 % · breaker opens",
+      "opensAt": "the breaker opens at 100 %"
     },
     "supercharge": {
       "label": "Supercharge",
@@ -1359,7 +1361,12 @@
       "summaryForever": "Supercharging stays on until you turn it off.",
       "inPast": "That time has already passed.",
       "save": "Supercharge",
-      "turnOff": "Turn off"
+      "turnOff": "Turn off",
+      "custom": "Pick time",
+      "noEnd": "No end",
+      "untilMorning": "Until {time}",
+      "start": "Start",
+      "apply": "Save"
     },
     "reason": {
       "notConnected": "Not plugged in",
@@ -1578,7 +1585,11 @@
           "label": "Current to hold when blind",
           "help": "Current the one car kept charging gets while the meter is blind."
         }
-      }
+      },
+      "locked": "Viewing only. Log in as admin to change these settings.",
+      "login": "Log in",
+      "onThisPage": "On this page",
+      "instant": "Every change applies within a second. No restart, no save button."
     },
     "bursts": {
       "title": "Burst history",
@@ -1653,6 +1664,28 @@
       "latencyDown": "Shed latency",
       "latencyUp": "Raise latency",
       "entryOffset": "Entry offset"
+    },
+    "order": {
+      "title": "Charging order",
+      "hint": "Drag to reorder · highest priority first",
+      "share": "Share equally",
+      "sharing": "Sharing equally",
+      "up": "Move {name} up",
+      "down": "Move {name} down",
+      "drag": "Drag {name} to change the order",
+      "prio": "Prio",
+      "prioTitle": "Priority {n}",
+      "place1": "charges first",
+      "place2": "charges second",
+      "place3": "charges third",
+      "place4": "charges fourth",
+      "later": "charges later",
+      "shares": "shares equally",
+      "failed": "Could not save the order: {error}"
+    },
+    "home": {
+      "line": "{kva} / {line} kVA",
+      "open": "House load {kva} of {line} kVA, {phase}. Open load management"
     }
   },
   "log": {

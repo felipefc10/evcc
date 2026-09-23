@@ -1269,14 +1269,16 @@
       "free": "Livre",
       "over": "Acima da linha por",
       "noReading": "Ainda sem leitura do contador. A barra enche assim que o contador responder.",
-      "overclaim": "Os sensores dos carros indicam {kva} kVA mais do que o contador mede. O contador manda, por isso os carros são ajustados."
+      "overclaim": "Os sensores dos carros indicam {kva} kVA mais do que o contador mede. O contador manda, por isso os carros são ajustados.",
+      "ofLine": "/ {kva} kVA"
     },
     "patience": {
       "title": "Paciência do contador gasta",
       "clear": "0 % · contador a zero",
       "banked": "{pct} % · {s} s acumulados",
       "burstsStop": "picos param aos {pct} %",
-      "opens": "100 % · disjuntor dispara"
+      "opens": "100 % · disjuntor dispara",
+      "opensAt": "o disjuntor dispara aos 100 %"
     },
     "supercharge": {
       "label": "Supercarga",
@@ -1300,7 +1302,12 @@
       "summaryForever": "A supercarga fica ligada até a desligar.",
       "inPast": "Essa hora já passou.",
       "save": "Supercarregar",
-      "turnOff": "Desligar"
+      "turnOff": "Desligar",
+      "custom": "Escolher hora",
+      "noEnd": "Sem fim",
+      "untilMorning": "Até às {time}",
+      "start": "Iniciar",
+      "apply": "Guardar"
     },
     "reason": {
       "notConnected": "Não ligado",
@@ -1519,7 +1526,11 @@
           "label": "Corrente a manter sem leitura",
           "help": "Corrente do único carro que continua a carregar enquanto o contador está sem leitura."
         }
-      }
+      },
+      "locked": "Só leitura. Inicie sessão como admin para alterar estas definições.",
+      "login": "Iniciar sessão",
+      "onThisPage": "Nesta página",
+      "instant": "Cada alteração aplica-se em menos de um segundo. Sem reiniciar, sem botão de guardar."
     },
     "bursts": {
       "title": "Histórico de picos",
@@ -1594,6 +1605,28 @@
       "latencyDown": "Latência de descida",
       "latencyUp": "Latência de subida",
       "entryOffset": "Correção de entrada"
+    },
+    "order": {
+      "title": "Ordem de carregamento",
+      "hint": "Arraste para reordenar · maior prioridade primeiro",
+      "share": "Partilhar igualmente",
+      "sharing": "A partilhar igualmente",
+      "up": "Subir {name}",
+      "down": "Descer {name}",
+      "drag": "Arraste {name} para mudar a ordem",
+      "prio": "Prio",
+      "prioTitle": "Prioridade {n}",
+      "place1": "carrega primeiro",
+      "place2": "carrega em segundo",
+      "place3": "carrega em terceiro",
+      "place4": "carrega em quarto",
+      "later": "carrega depois",
+      "shares": "partilha igualmente",
+      "failed": "Não foi possível guardar a ordem: {error}"
+    },
+    "home": {
+      "line": "{kva} / {line} kVA",
+      "open": "Carga da casa {kva} de {line} kVA, {phase}. Abrir gestão de carga"
     }
   },
   "log": {

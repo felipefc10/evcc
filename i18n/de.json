@@ -1328,14 +1328,16 @@
       "free": "Frei",
       "over": "Über der Schwelle um",
       "noReading": "Noch kein Zählerwert. Der Balken füllt sich, sobald der Zähler antwortet.",
-      "overclaim": "Die Fahrzeugsensoren melden {kva} kVA mehr als der Zähler misst. Der Zähler gilt, die Autos werden angepasst."
+      "overclaim": "Die Fahrzeugsensoren melden {kva} kVA mehr als der Zähler misst. Der Zähler gilt, die Autos werden angepasst.",
+      "ofLine": "/ {kva} kVA"
     },
     "patience": {
       "title": "Verbrauchte Zählergeduld",
       "clear": "0 % · Zähler auf null",
       "banked": "{pct} % · {s} s angesammelt",
       "burstsStop": "Boosts enden bei {pct} %",
-      "opens": "100 % · Schalter löst aus"
+      "opens": "100 % · Schalter löst aus",
+      "opensAt": "bei 100 % löst der Zähler aus"
     },
     "supercharge": {
       "label": "Supercharging",
@@ -1359,7 +1361,12 @@
       "summaryForever": "Supercharging bleibt an, bis du es ausschaltest.",
       "inPast": "Diese Zeit ist bereits vorbei.",
       "save": "Supercharging",
-      "turnOff": "Ausschalten"
+      "turnOff": "Ausschalten",
+      "custom": "Zeit wählen",
+      "noEnd": "Ohne Ende",
+      "untilMorning": "Bis {time}",
+      "start": "Starten",
+      "apply": "Speichern"
     },
     "reason": {
       "notConnected": "Nicht angesteckt",
@@ -1578,7 +1585,11 @@
           "label": "Strom ohne Messwert",
           "help": "Strom des einen weiterladenden Autos, solange der Zähler stumm ist."
         }
-      }
+      },
+      "locked": "Nur Ansicht. Als Admin anmelden, um diese Einstellungen zu ändern.",
+      "login": "Anmelden",
+      "onThisPage": "Auf dieser Seite",
+      "instant": "Jede Änderung wirkt innerhalb einer Sekunde. Kein Neustart, kein Speichern-Knopf."
     },
     "bursts": {
       "title": "Boost-Verlauf",
@@ -1653,6 +1664,28 @@
       "latencyDown": "Latenz Absenkung",
       "latencyUp": "Latenz Erhöhung",
       "entryOffset": "Einstiegskorrektur"
+    },
+    "order": {
+      "title": "Ladereihenfolge",
+      "hint": "Ziehen zum Sortieren · höchste Priorität zuerst",
+      "share": "Gleich teilen",
+      "sharing": "Teilen gleich",
+      "up": "{name} nach oben",
+      "down": "{name} nach unten",
+      "drag": "{name} ziehen, um die Reihenfolge zu ändern",
+      "prio": "Prio",
+      "prioTitle": "Priorität {n}",
+      "place1": "lädt zuerst",
+      "place2": "lädt als zweites",
+      "place3": "lädt als drittes",
+      "place4": "lädt als viertes",
+      "later": "lädt später",
+      "shares": "teilt gleichmäßig",
+      "failed": "Reihenfolge nicht gespeichert: {error}"
+    },
+    "home": {
+      "line": "{kva} / {line} kVA",
+      "open": "Hauslast {kva} von {line} kVA, {phase}. Lastmanagement öffnen"
     }
   },
   "log": {

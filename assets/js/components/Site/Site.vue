@@ -4,14 +4,10 @@
 			<TopHeader :title="headerTitle" :notifications="notifications" />
 			<HemsWarning :status="hems?.status" />
 			<Energyflow v-if="!setupRequired && !hasFatalError" v-bind="energyflow" />
-			<router-link
+			<LoadHomeLine
 				v-if="!setupRequired && !hasFatalError && supercharging?.enabled"
-				to="/load"
-				class="load-summary d-block round-box p-3 mt-3 text-reset text-decoration-none"
-				data-testid="load-summary"
-			>
-				<LoadLedger :state="supercharging" compact />
-			</router-link>
+				:state="supercharging"
+			/>
 		</div>
 		<div class="d-flex flex-column justify-content-between content-area">
 			<div
@@ -85,7 +81,7 @@ import Loadpoints from "../Loadpoints/Loadpoints.vue";
 import formatter from "@/mixins/formatter";
 import collector from "@/mixins/collector.ts";
 import WelcomeIcons from "./WelcomeIcons.vue";
-import LoadLedger from "../LoadManagement/LoadLedger.vue";
+import LoadHomeLine from "../LoadManagement/LoadHomeLine.vue";
 import SuperchargeModal from "../LoadManagement/SuperchargeModal.vue";
 import type { LoadState } from "@/types/supercharge";
 import { defineComponent, type PropType } from "vue";
@@ -117,7 +113,7 @@ export default defineComponent({
 		HemsWarning,
 		TopHeader,
 		WelcomeIcons,
-		LoadLedger,
+		LoadHomeLine,
 		SuperchargeModal,
 	},
 	mixins: [formatter, collector],
