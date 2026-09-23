@@ -1,8 +1,9 @@
 <template>
-	<SettingsFormRow
+	<SettingRow
 		:id="id"
 		:label="$t(`loadManagement.settings.fields.${field.key}.label`)"
-		:description="$t(`loadManagement.settings.fields.${field.key}.help`)"
+		:help="$t(`loadManagement.settings.fields.${field.key}.help`)"
+		:feedback="feedback"
 	>
 		<div class="input-group">
 			<input
@@ -20,15 +21,12 @@
 			/>
 			<span v-if="field.unit" class="input-group-text unit">{{ field.unit }}</span>
 		</div>
-		<div v-if="feedback" class="small mt-1" :class="feedback.ok ? 'text-primary' : 'text-danger'">
-			{{ feedback.text }}
-		</div>
-	</SettingsFormRow>
+	</SettingRow>
 </template>
 
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
-import SettingsFormRow from "../Helper/SettingsFormRow.vue";
+import SettingRow from "./SettingRow.vue";
 
 export interface NumberField {
 	key: string;
@@ -42,7 +40,7 @@ export interface NumberField {
 // One numeric setting: label, box with its unit, and what the server made of it.
 export default defineComponent({
 	name: "NumberRow",
-	components: { SettingsFormRow },
+	components: { SettingRow },
 	props: {
 		field: { type: Object as PropType<NumberField>, required: true },
 		value: { type: Number, default: 0 },

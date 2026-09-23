@@ -1,202 +1,276 @@
 <template>
-	<div data-testid="load-settings">
-		<Card class="mb-4 box-pull-out" :title="$t('loadManagement.settings.general')">
-			<div class="form-check form-switch mb-3">
-				<input
-					id="lmEnabled"
-					:checked="config.enabled"
-					class="form-check-input"
-					type="checkbox"
-					role="switch"
-					@change="save({ enabled: ($event.target as HTMLInputElement).checked }, 'enabled')"
-				/>
-				<label class="form-check-label fw-bold" for="lmEnabled">
-					{{ $t("loadManagement.settings.enabled") }}
-				</label>
-				<div class="small text-muted">{{ $t("loadManagement.settings.enabledHelp") }}</div>
-			</div>
-			<SettingsFormRow
-				id="lmMeterUri"
-				:label="$t('loadManagement.settings.meterUri')"
-				:description="$t('loadManagement.settings.meterUriHelp')"
-			>
-				<input
-					id="lmMeterUri"
-					class="form-control"
-					type="url"
-					:value="config.meterUri"
-					placeholder="http://192.168.1.10/emeter/0"
-					@change="save({ meterUri: ($event.target as HTMLInputElement).value }, 'meterUri')"
-				/>
-				<Feedback :msg="feedback['meterUri']" />
-			</SettingsFormRow>
-			<NumberRow
-				v-for="f in curveFields"
-				:key="f.key"
-				:field="f"
-				:value="config[f.key as 'q' | 'k' | 'contractKva' | 'failsafeA']"
-				:feedback="feedback[f.key]"
-				@change="(v: number) => save({ [f.key]: v }, f.key, v)"
-			/>
-		</Card>
-
-		<Card
-			v-for="group in groups"
-			:key="group.id"
-			class="mb-4 box-pull-out"
-			:title="$t(`loadManagement.settings.groups.${group.id}.title`)"
-			:subtitle="$t(`loadManagement.settings.groups.${group.id}.subtitle`)"
+	<div class="settings-layout" data-testid="load-settings">
+		<aside
+			class="settings-index d-none d-lg-flex"
+			:aria-label="$t('loadManagement.settings.onThisPage')"
 		>
-			<div
-				v-if="group.id === 'burst'"
-				class="row row-cols-2 row-cols-md-4 g-3 mb-4"
-				data-testid="load-tuning-tiles"
+			<span class="index-title">{{ $t("loadManagement.settings.onThisPage") }}</span>
+			<button
+				v-for="sec in sections"
+				:key="sec.id"
+				type="button"
+				class="index-link"
+				@click="scrollTo(sec.id)"
 			>
-				<div v-for="t in tiles" :key="t.label" class="col">
-					<div class="tile p-2 h-100">
-						<div class="tile-value">{{ t.value }}</div>
-						<div class="small text-muted">{{ t.label }}</div>
-					</div>
-				</div>
-			</div>
-			<template v-for="f in group.fields" :key="f.key">
-				<SettingsFormRow
-					v-if="f.type === 'select'"
-					:id="`lm-${f.key}`"
-					:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
-					:description="$t(`loadManagement.settings.fields.${f.key}.help`)"
-				>
-					<select
-						:id="`lm-${f.key}`"
-						class="form-select"
-						:value="settingValue(f.key)"
-						@change="
-							saveSetting(f.key, ($event.target as HTMLSelectElement).value)
-						"
-					>
-						<option v-for="o in f.options" :key="o" :value="o">
-							{{ $t(`loadManagement.settings.fields.${f.key}.options.${o}`) }}
-						</option>
-					</select>
-					<Feedback :msg="feedback[f.key]" />
-				</SettingsFormRow>
-				<SettingsFormRow
-					v-else-if="f.type === 'text'"
-					:id="`lm-${f.key}`"
-					:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
-					:description="$t(`loadManagement.settings.fields.${f.key}.help`)"
-				>
-					<input
-						:id="`lm-${f.key}`"
-						class="form-control font-monospace"
-						type="text"
-						:value="settingValue(f.key)"
-						@change="saveSetting(f.key, ($event.target as HTMLInputElement).value)"
-					/>
-					<Feedback :msg="feedback[f.key]" />
-				</SettingsFormRow>
-				<NumberRow
-					v-else
-					:field="f"
-					:value="Number(settingValue(f.key))"
-					:feedback="feedback[f.key]"
-					@change="(v: number) => saveSetting(f.key, v)"
-				/>
-			</template>
-		</Card>
+				{{ sec.title }}
+			</button>
+			<p class="index-note">{{ $t("loadManagement.settings.instant") }}</p>
+		</aside>
 
-		<Card class="mb-4 box-pull-out" :title="$t('loadManagement.settings.loadpoints')">
-			<p class="small text-muted">{{ $t("loadManagement.settings.loadpointsHelp") }}</p>
-			<div
-				v-for="lp in loadpoints"
-				:key="lp.name"
-				class="mb-4"
-				:data-testid="`load-lpconfig-${lp.index + 1}`"
-			>
-				<h4 class="h6 fw-bold">{{ lp.title }}</h4>
-				<div class="form-check form-switch mb-2">
-					<input
-						:id="`lm-fast-${lp.index}`"
-						:checked="lpConfig(lp.name).fast"
-						class="form-check-input"
-						type="checkbox"
-						role="switch"
-						@change="
-							saveLp(lp.name, { fast: ($event.target as HTMLInputElement).checked })
-						"
-					/>
-					<label class="form-check-label" :for="`lm-fast-${lp.index}`">
-						{{ $t("loadManagement.settings.fast") }}
-					</label>
-					<div class="small text-muted">{{ $t("loadManagement.settings.fastHelp") }}</div>
-				</div>
-				<SettingsFormRow
-					:id="`lm-measure-${lp.index}`"
-					:label="$t('loadManagement.settings.measureTopic')"
-					:description="$t('loadManagement.settings.measureTopicHelp')"
+		<div class="settings-main">
+			<div v-if="locked" class="locked mb-4" role="status" data-testid="load-settings-locked">
+				<svg
+					width="20"
+					height="20"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
 				>
-					<div class="input-group">
-						<input
-							:id="`lm-measure-${lp.index}`"
-							class="form-control font-monospace"
-							type="text"
-							:value="lpConfig(lp.name).measureTopic"
-							@change="
-								saveLp(lp.name, {
-									measureTopic: ($event.target as HTMLInputElement).value,
-								})
-							"
-						/>
-						<select
-							class="form-select unit-select"
-							:aria-label="$t('loadManagement.settings.measureUnit')"
-							:value="lpConfig(lp.name).measureUnit"
-							@change="
-								saveLp(lp.name, {
-									measureUnit: ($event.target as HTMLSelectElement).value as
-										| 'A'
-										| 'W',
-								})
-							"
-						>
-							<option value="A">A</option>
-							<option value="W">W</option>
-						</select>
-					</div>
-				</SettingsFormRow>
-				<SettingsFormRow
-					:id="`lm-temp-${lp.index}`"
-					:label="$t('loadManagement.settings.tempTopic')"
-					:description="$t('loadManagement.settings.tempTopicHelp')"
+					<rect x="5" y="11" width="14" height="10" rx="2" />
+					<path d="M8 11V7a4 4 0 0 1 8 0v4" />
+				</svg>
+				<span class="flex-grow-1">{{ $t("loadManagement.settings.locked") }}</span>
+				<button
+					type="button"
+					class="btn btn-sm btn-light rounded-pill px-3 fw-bold"
+					@click="$emit('login')"
 				>
-					<input
-						:id="`lm-temp-${lp.index}`"
-						class="form-control font-monospace"
-						type="text"
-						:value="lpConfig(lp.name).tempTopic"
-						@change="
-							saveLp(lp.name, { tempTopic: ($event.target as HTMLInputElement).value })
-						"
-					/>
-				</SettingsFormRow>
-				<SettingsFormRow
-					:id="`lm-max-${lp.index}`"
-					:label="$t('loadManagement.settings.maxTopic')"
-					:description="$t('loadManagement.settings.maxTopicHelp')"
-				>
-					<input
-						:id="`lm-max-${lp.index}`"
-						class="form-control font-monospace"
-						type="text"
-						:value="lpConfig(lp.name).maxTopic"
-						@change="
-							saveLp(lp.name, { maxTopic: ($event.target as HTMLInputElement).value })
-						"
-					/>
-				</SettingsFormRow>
-				<Feedback :msg="feedback[`lp-${lp.name}`]" />
+					{{ $t("loadManagement.settings.login") }}
+				</button>
 			</div>
-		</Card>
+
+			<fieldset :disabled="locked">
+				<section :id="sectionId('installation')" class="lm-box mb-4">
+					<h2 class="box-title">{{ $t("loadManagement.settings.general") }}</h2>
+					<SettingRow
+						id="lmEnabled"
+						:label="$t('loadManagement.settings.enabled')"
+						:help="$t('loadManagement.settings.enabledHelp')"
+						:feedback="feedback['enabled']"
+					>
+						<div class="form-check form-switch m-0">
+							<input
+								id="lmEnabled"
+								:checked="config.enabled"
+								class="form-check-input switch"
+								type="checkbox"
+								role="switch"
+								@change="onEnabled"
+							/>
+						</div>
+					</SettingRow>
+					<SettingRow
+						id="lmMeterUri"
+						wide
+						:label="$t('loadManagement.settings.meterUri')"
+						:help="$t('loadManagement.settings.meterUriHelp')"
+						:feedback="feedback['meterUri']"
+					>
+						<input
+							id="lmMeterUri"
+							class="form-control"
+							type="url"
+							:value="config.meterUri"
+							placeholder="http://192.168.1.10/emeter/0"
+							@change="onMeterUri"
+						/>
+					</SettingRow>
+					<NumberRow
+						v-for="f in curveFields"
+						:key="f.key"
+						:field="f"
+						:value="config[f.key as 'q' | 'k' | 'contractKva' | 'failsafeA']"
+						:feedback="feedback[f.key]"
+						@change="(v: number) => save({ [f.key]: v }, f.key, v)"
+					/>
+				</section>
+
+				<section
+					v-for="group in groups"
+					:id="sectionId(group.id)"
+					:key="group.id"
+					class="lm-box mb-4"
+				>
+					<h2 class="box-title">
+						{{ $t(`loadManagement.settings.groups.${group.id}.title`) }}
+					</h2>
+					<p class="box-subtitle">
+						{{ $t(`loadManagement.settings.groups.${group.id}.subtitle`) }}
+					</p>
+					<div v-if="group.id === 'burst'" class="tiles mb-3" data-testid="load-tuning-tiles">
+						<div v-for="t in tiles" :key="t.label" class="tile">
+							<div class="tile-value">{{ t.value }}</div>
+							<div class="tile-label">{{ t.label }}</div>
+						</div>
+					</div>
+					<template v-for="f in group.fields" :key="f.key">
+						<SettingRow
+							v-if="f.type === 'select'"
+							:id="`lm-${f.key}`"
+							:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
+							:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
+							:feedback="feedback[f.key]"
+						>
+							<select
+								:id="`lm-${f.key}`"
+								class="form-select"
+								:value="settingValue(f.key)"
+								@change="
+									saveSetting(f.key, ($event.target as HTMLSelectElement).value)
+								"
+							>
+								<option v-for="o in f.options" :key="o" :value="o">
+									{{ $t(`loadManagement.settings.fields.${f.key}.options.${o}`) }}
+								</option>
+							</select>
+						</SettingRow>
+						<SettingRow
+							v-else-if="f.type === 'text'"
+							:id="`lm-${f.key}`"
+							wide
+							:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
+							:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
+							:feedback="feedback[f.key]"
+						>
+							<input
+								:id="`lm-${f.key}`"
+								class="form-control font-monospace"
+								type="text"
+								:value="settingValue(f.key)"
+								@change="saveSetting(f.key, ($event.target as HTMLInputElement).value)"
+							/>
+						</SettingRow>
+						<NumberRow
+							v-else
+							:field="f"
+							:value="Number(settingValue(f.key))"
+							:feedback="feedback[f.key]"
+							@change="(v: number) => saveSetting(f.key, v)"
+						/>
+					</template>
+				</section>
+
+				<section :id="sectionId('chargers')" class="lm-box mb-4">
+					<h2 class="box-title">{{ $t("loadManagement.settings.loadpoints") }}</h2>
+					<p class="box-subtitle">{{ $t("loadManagement.settings.loadpointsHelp") }}</p>
+					<div
+						v-for="lp in loadpoints"
+						:key="lp.name"
+						class="charger"
+						:data-testid="`load-lpconfig-${lp.index + 1}`"
+					>
+						<div class="charger-head">
+							<h3 class="charger-title">{{ lp.title }}</h3>
+							<div class="form-check form-switch m-0">
+								<input
+									:id="`lm-fast-${lp.index}`"
+									:checked="lpConfig(lp.name).fast"
+									class="form-check-input"
+									type="checkbox"
+									role="switch"
+									@change="
+										saveLp(lp.name, {
+											fast: ($event.target as HTMLInputElement).checked,
+										})
+									"
+								/>
+								<label
+									class="form-check-label fw-bold"
+									:for="`lm-fast-${lp.index}`"
+									:title="$t('loadManagement.settings.fastHelp')"
+								>
+									{{ $t("loadManagement.settings.fast") }}
+								</label>
+							</div>
+						</div>
+						<div class="feeds">
+							<div>
+								<label
+									class="feed-label"
+									:for="`lm-measure-${lp.index}`"
+									:title="$t('loadManagement.settings.measureTopicHelp')"
+								>
+									{{ $t("loadManagement.settings.measureTopic") }}
+								</label>
+								<div class="input-group">
+									<input
+										:id="`lm-measure-${lp.index}`"
+										class="form-control font-monospace"
+										type="text"
+										:value="lpConfig(lp.name).measureTopic"
+										@change="
+											saveLp(lp.name, {
+												measureTopic: ($event.target as HTMLInputElement).value,
+											})
+										"
+									/>
+									<select
+										class="form-select unit-select"
+										:aria-label="$t('loadManagement.settings.measureUnit')"
+										:value="lpConfig(lp.name).measureUnit"
+										@change="
+											saveLp(lp.name, {
+												measureUnit: ($event.target as HTMLSelectElement).value as
+													| 'A'
+													| 'W',
+											})
+										"
+									>
+										<option value="A">A</option>
+										<option value="W">W</option>
+									</select>
+								</div>
+							</div>
+							<div>
+								<label
+									class="feed-label"
+									:for="`lm-max-${lp.index}`"
+									:title="$t('loadManagement.settings.maxTopicHelp')"
+								>
+									{{ $t("loadManagement.settings.maxTopic") }}
+								</label>
+								<input
+									:id="`lm-max-${lp.index}`"
+									class="form-control font-monospace"
+									type="text"
+									:value="lpConfig(lp.name).maxTopic"
+									@change="
+										saveLp(lp.name, {
+											maxTopic: ($event.target as HTMLInputElement).value,
+										})
+									"
+								/>
+							</div>
+							<div>
+								<label
+									class="feed-label"
+									:for="`lm-temp-${lp.index}`"
+									:title="$t('loadManagement.settings.tempTopicHelp')"
+								>
+									{{ $t("loadManagement.settings.tempTopic") }}
+								</label>
+								<input
+									:id="`lm-temp-${lp.index}`"
+									class="form-control font-monospace"
+									type="text"
+									:value="lpConfig(lp.name).tempTopic"
+									@change="
+										saveLp(lp.name, {
+											tempTopic: ($event.target as HTMLInputElement).value,
+										})
+									"
+								/>
+							</div>
+						</div>
+						<Feedback :msg="feedback[`lp-${lp.name}`]" />
+					</div>
+				</section>
+			</fieldset>
+		</div>
 	</div>
 </template>
 
@@ -204,8 +278,7 @@
 import { defineComponent, h, type PropType } from "vue";
 import api from "@/api";
 import formatter from "@/mixins/formatter";
-import Card from "../Helper/Card.vue";
-import SettingsFormRow from "../Helper/SettingsFormRow.vue";
+import SettingRow from "./SettingRow.vue";
 import NumberRow, { type NumberField } from "./NumberRow.vue";
 import type {
 	LoadConfig,
@@ -227,7 +300,7 @@ const Feedback = defineComponent({
 			props.msg
 				? h(
 						"div",
-						{ class: ["small", "mt-1", props.msg.ok ? "text-primary" : "text-danger"] },
+						{ class: ["small", "mt-2", props.msg.ok ? "text-primary" : "text-danger"] },
 						props.msg.text
 					)
 				: null;
@@ -237,12 +310,14 @@ const Feedback = defineComponent({
 // Every setting is applied the moment it is changed: the control loop reads it on its next second.
 export default defineComponent({
 	name: "LoadSettings",
-	components: { Card, SettingsFormRow, NumberRow, Feedback },
+	components: { SettingRow, NumberRow, Feedback },
 	mixins: [formatter],
 	props: {
 		config: { type: Object as PropType<LoadConfig>, required: true },
 		state: { type: Object as PropType<LoadState>, required: true },
+		locked: Boolean,
 	},
+	emits: ["login"],
 	data() {
 		return {
 			feedback: {} as Record<string, { ok: boolean; text: string } | undefined>,
@@ -250,6 +325,16 @@ export default defineComponent({
 		};
 	},
 	computed: {
+		sections(): { id: string; title: string }[] {
+			return [
+				{ id: "installation", title: this.$t("loadManagement.settings.general") },
+				...this.groups.map((g) => ({
+					id: g.id,
+					title: this.$t(`loadManagement.settings.groups.${g.id}.title`),
+				})),
+				{ id: "chargers", title: this.$t("loadManagement.settings.loadpoints") },
+			];
+		},
 		loadpoints(): LoadLoadpoint[] {
 			return this.state.loadpoints || [];
 		},
@@ -326,8 +411,23 @@ export default defineComponent({
 		},
 	},
 	methods: {
+		sectionId(id: string): string {
+			return `lm-section-${id}`;
+		},
+		// the app routes by hash, so the index scrolls instead of linking
+		scrollTo(id: string) {
+			document
+				.getElementById(this.sectionId(id))
+				?.scrollIntoView({ behavior: "smooth", block: "start" });
+		},
+		onEnabled(e: Event) {
+			this.save({ enabled: (e.target as HTMLInputElement).checked }, "enabled");
+		},
+		onMeterUri(e: Event) {
+			this.save({ meterUri: (e.target as HTMLInputElement).value }, "meterUri");
+		},
 		settingValue(key: string): string | number {
-			return (this.config.settings as unknown as Record<string, string | number>)[key];
+			return (this.config.settings as unknown as Record<string, string | number>)[key]!;
 		},
 		lpConfig(name: string): LoadLpConfig {
 			return (
@@ -353,7 +453,9 @@ export default defineComponent({
 				const cfg = res.data as LoadConfig;
 				const settings = cfg.settings as unknown as Record<string, string | number>;
 				const got =
-					key in settings ? settings[key] : (cfg as unknown as Record<string, string | number>)[key];
+					key in settings
+						? settings[key]
+						: (cfg as unknown as Record<string, string | number>)[key];
 				let text = this.$t("loadManagement.settings.saved");
 				if (typeof asked === "number" && typeof got === "number" && Math.abs(got - asked) > 1e-9) {
 					text = this.$t("loadManagement.settings.clamped", { value: got });
@@ -379,16 +481,153 @@ export default defineComponent({
 </script>
 
 <style scoped>
+.settings-layout {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 2.5rem;
+}
+@media (min-width: 992px) {
+	.settings-layout {
+		grid-template-columns: 13rem minmax(0, 1fr);
+	}
+}
+.settings-index {
+	flex-direction: column;
+	gap: 0.25rem;
+	position: sticky;
+	top: 1rem;
+	align-self: start;
+}
+.index-title {
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	color: var(--evcc-gray);
+	padding: 0 0.75rem 0.5rem;
+}
+.index-link {
+	border: 0;
+	background: none;
+	text-align: start;
+	padding: 0.6rem 0.75rem;
+	border-radius: 10px;
+	font-weight: 600;
+	color: var(--evcc-gray);
+}
+.index-link:hover {
+	background: var(--evcc-box);
+	color: var(--evcc-default-text);
+}
+.index-note {
+	margin: 1rem 0.75rem 0;
+	font-size: 0.75rem;
+	color: var(--evcc-gray);
+}
+fieldset {
+	min-width: 0;
+}
+.locked {
+	display: flex;
+	align-items: center;
+	gap: 0.9rem;
+	padding: 1rem 1.25rem;
+	border-radius: 1rem;
+	color: var(--evcc-orange);
+	background: color-mix(in srgb, var(--evcc-orange) 10%, transparent);
+	border: 1px solid color-mix(in srgb, var(--evcc-orange) 35%, transparent);
+}
+.locked span {
+	color: var(--evcc-default-text);
+}
+.lm-box {
+	background: var(--evcc-box);
+	border-radius: 2rem;
+	padding: 1.75rem 2rem 1rem;
+	scroll-margin-top: 1rem;
+}
+@media (max-width: 575px) {
+	.lm-box {
+		padding: 1.25rem 1.25rem 0.5rem;
+		border-radius: 1.5rem;
+	}
+}
+.box-title {
+	font-size: 1.25rem;
+	font-weight: 700;
+	margin: 0 0 0.25rem;
+}
+.box-subtitle {
+	font-size: 0.875rem;
+	color: var(--evcc-gray);
+	margin-bottom: 1rem;
+}
+.switch {
+	width: 2.75rem;
+	height: 1.5rem;
+}
+.tiles {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	gap: 0.75rem;
+}
+@media (max-width: 767px) {
+	.tiles {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
 .tile {
-	border-radius: 0.5rem;
+	padding: 0.9rem 1rem;
+	border-radius: 1rem;
 	background: var(--evcc-gray-10);
 }
 .tile-value {
-	font-size: 1.25rem;
-	font-weight: 700;
+	font-size: 1.35rem;
+	font-weight: 800;
 	font-variant-numeric: tabular-nums;
 }
+.tile-label {
+	font-size: 0.75rem;
+	color: var(--evcc-gray);
+}
+.charger {
+	border: 1px solid var(--evcc-gray-25);
+	border-radius: 1.25rem;
+	padding: 1.1rem 1.25rem;
+	margin-bottom: 1rem;
+}
+.charger-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	margin-bottom: 0.9rem;
+}
+.charger-title {
+	font-size: 1rem;
+	font-weight: 700;
+	margin: 0;
+}
+.feeds {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 1rem;
+}
+@media (max-width: 991px) {
+	.feeds {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+.feed-label {
+	display: block;
+	font-size: 0.7rem;
+	font-weight: 700;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--evcc-gray);
+	margin-bottom: 0.35rem;
+}
 .unit-select {
-	max-width: 5rem;
+	max-width: 4.5rem;
 }
 </style>
