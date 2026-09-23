@@ -45,7 +45,7 @@
 					class="form-select"
 					@change="selectedPreset = 'custom'"
 				>
-					<option v-for="t in times" :key="t" :value="t">{{ t }}</option>
+					<option v-for="t in times" :key="t" :value="t">{{ timeLabel(t) }}</option>
 				</select>
 			</div>
 		</div>
@@ -83,6 +83,7 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import api from "@/api";
+import formatter from "@/mixins/formatter";
 import GenericModal from "../Helper/GenericModal.vue";
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -93,6 +94,7 @@ const dayValue = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad
 export default defineComponent({
 	name: "SuperchargeModal",
 	components: { GenericModal },
+	mixins: [formatter],
 	emits: ["updated"],
 	data() {
 		return {
@@ -109,7 +111,12 @@ export default defineComponent({
 	computed: {
 		presets() {
 			return [
-				{ id: "0800", label: this.$t("loadManagement.supercharge.until", { time: "08:00" }) },
+				{
+					id: "0800",
+					label: this.$t("loadManagement.supercharge.until", {
+						time: this.fmtHourMinute(new Date(2000, 0, 1, 8, 0)),
+					}),
+				},
 				{ id: "2", label: this.$t("loadManagement.supercharge.hours", { h: 2 }) },
 				{ id: "4", label: this.$t("loadManagement.supercharge.hours", { h: 4 }) },
 				{ id: "8", label: this.$t("loadManagement.supercharge.hours", { h: 8 }) },
@@ -153,15 +160,15 @@ export default defineComponent({
 		summary(): string {
 			if (!this.target) return this.$t("loadManagement.supercharge.summaryForever");
 			return this.$t("loadManagement.supercharge.summaryUntil", {
-				time: this.target.toLocaleString(this.$i18n.locale, {
-					weekday: "long",
-					hour: "2-digit",
-					minute: "2-digit",
-				}),
+				time: this.fmtDayTime(this.target),
 			});
 		},
 	},
 	methods: {
+		timeLabel(t: string): string {
+			const [h, m] = t.split(":").map(Number);
+			return this.fmtHourMinute(new Date(2000, 0, 1, h, m));
+		},
 		open(index: number, title: string, active: boolean, until: string | null) {
 			this.index = index;
 			this.title = title;
@@ -177,7 +184,7 @@ export default defineComponent({
 			} else {
 				this.choose("0800");
 			}
-			(this.$refs["modal"] as InstanceType<typeof GenericModal>).open();
+			(this.$refs["modal"] as InstanceType<typeof GenericModal> | undefined)?.open();
 		},
 		choose(id: string) {
 			this.selectedPreset = id;
@@ -201,7 +208,7 @@ export default defineComponent({
 			try {
 				await api.post(`supercharging/loadpoints/${this.index + 1}/supercharge`, { on, until });
 				this.$emit("updated");
-				(this.$refs["modal"] as InstanceType<typeof GenericModal>).close();
+				(this.$refs["modal"] as InstanceType<typeof GenericModal> | undefined)?.close();
 			} catch (e: any) {
 				this.error = e?.response?.data?.error || String(e);
 			} finally {

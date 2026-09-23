@@ -1207,6 +1207,33 @@ func (c *Controller) Start(now float64, keepCounter bool) {
 	c.Tel = newTelemetry(PhaseBase)
 }
 
+// External aligns the controller's picture with what the loadpoint's own logic did to the
+// charger outside the control law: a loadpoint that no longer wants to charge has already
+// been switched off (so holding it at its floor would be a phantom current), and one whose
+// own demand dropped below the setpoint is already limited to that demand.
+func (c *Controller) External(key string, t float64, wants bool, capA int) {
+	st, ok := c.lp[key]
+	if !ok || st.paused {
+		return
+	}
+	if !wants {
+		st.setpoint = 0
+		st.paused = true
+		st.lastCmdT = t
+		st.lastStopT = never
+		st.stopBeganT = never
+		st.floorSince = nil
+		st.pendingSince = nil
+		st.pendingDir = 0
+		st.owesWrite = false
+		st.unanswered = 0
+		return
+	}
+	if capA > 0 && st.setpoint > capA {
+		st.setpoint = capA
+	}
+}
+
 // Stop ends the run window
 func (c *Controller) Stop() {
 	c.Phase = PhaseIdle

@@ -30,11 +30,13 @@
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
 import api from "@/api";
+import formatter from "@/mixins/formatter";
 
 // Switching supercharging on asks until when (the parent opens SuperchargeModal);
 // switching it off is immediate. The switch only ever shows what the server says.
 export default defineComponent({
 	name: "SuperchargeSwitch",
+	mixins: [formatter],
 	props: {
 		index: { type: Number, required: true },
 		title: { type: String, default: "" },
@@ -48,15 +50,7 @@ export default defineComponent({
 	computed: {
 		untilLabel(): string {
 			if (!this.until) return this.$t("loadManagement.supercharge.indefinitelyShort");
-			const d = new Date(this.until);
-			const soon = d.getTime() - Date.now() < 18 * 3600 * 1000;
-			const time = soon
-				? d.toLocaleTimeString(this.$i18n.locale, { hour: "2-digit", minute: "2-digit" })
-				: d.toLocaleString(this.$i18n.locale, {
-						weekday: "short",
-						hour: "2-digit",
-						minute: "2-digit",
-					});
+			const time = this.fmtAbsoluteDate(new Date(this.until));
 			return this.$t("loadManagement.supercharge.until", { time });
 		},
 	},

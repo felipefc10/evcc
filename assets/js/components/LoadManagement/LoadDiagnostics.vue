@@ -105,10 +105,7 @@ export default defineComponent({
 		checkedLabel(): string {
 			if (!this.state.checkedAt) return "";
 			const failed = this.checks.filter((c) => !c.ok).length;
-			const when = new Date(this.state.checkedAt).toLocaleTimeString(this.$i18n.locale, {
-				hour: "2-digit",
-				minute: "2-digit",
-			});
+			const when = this.fmtAbsoluteDate(new Date(this.state.checkedAt));
 			return failed
 				? this.$t("loadManagement.diagnostics.failed", { n: failed, when })
 				: this.$t("loadManagement.diagnostics.passed", { when });

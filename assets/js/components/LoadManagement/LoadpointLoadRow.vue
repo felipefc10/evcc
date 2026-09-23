@@ -44,11 +44,7 @@ export default defineComponent({
 				t: (k, v) => this.$t(k, v || {}),
 				number: (n, d) => this.fmtNumber(n, d),
 				duration: (s) => (s < 90 ? `${Math.round(s)} s` : this.fmtDurationLong(s, "short")),
-				time: (iso) =>
-					new Date(iso).toLocaleTimeString(this.$i18n.locale, {
-						hour: "2-digit",
-						minute: "2-digit",
-					}),
+				time: (iso) => this.fmtAbsoluteDate(new Date(iso)),
 			});
 		},
 		warning(): boolean {

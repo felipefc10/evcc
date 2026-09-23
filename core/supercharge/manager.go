@@ -3,6 +3,7 @@ package supercharge
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"slices"
@@ -11,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/util"
 )
 
@@ -30,6 +32,8 @@ const (
 	traceKeep      = 180              // samples kept for diagnostics
 	learnSaveEvery = 10 * time.Minute // persist the learner this often
 	retryS         = 2.0              // retry pace of a failed actuation
+	slowReadS      = 2.0              // live current read period of a slow charger
+	liveFreshS     = 4.0              // a live current reading older than this is not used
 )
 
 // LpState is what the manager reads from one loadpoint
@@ -77,7 +81,9 @@ type LpConfig struct {
 
 // Config is the persisted configuration, settings included
 type Config struct {
-	Enabled      bool                `json:"enabled"`
+	Enabled bool `json:"enabled"`
+	// FailsafeA limits every loadpoint while load management is switched off, 0 for no limit
+	FailsafeA    float64             `json:"failsafeA"`
 	MeterURI     string              `json:"meterUri"`
 	Q            float64             `json:"q"`
 	K            float64             `json:"k"`
@@ -91,6 +97,7 @@ type Config struct {
 func DefaultConfig() Config {
 	return Config{
 		Enabled:     false,
+		FailsafeA:   6,
 		Q:           50,
 		K:           1.2,
 		ContractKVA: 3.45,
@@ -109,6 +116,7 @@ func (c *Config) sanitize() {
 	c.K = math.Min(math.Max(c.K, 1), 2)
 	c.ContractKVA = math.Min(math.Max(c.ContractKVA, 1), 20)
 	c.MeterURI = strings.TrimSpace(c.MeterURI)
+	c.FailsafeA = math.Min(math.Max(c.FailsafeA, 0), 32)
 	if c.Loadpoints == nil {
 		c.Loadpoints = map[string]LpConfig{}
 	}
@@ -144,6 +152,10 @@ type managedLp struct {
 	failures  int
 	wake      chan struct{}
 	commanded bool // the controller has commanded it this run
+
+	live   float64 // last live current reading, A
+	liveAt time.Time
+	liveOK bool
 
 	delivered [2]float64 // Wh, s
 	lastT     float64
@@ -286,6 +298,9 @@ func (m *Manager) Clamp(name string, current, minA float64, enabled bool, offere
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if !m.cfg.Enabled {
+		if m.cfg.FailsafeA > 0 {
+			return math.Min(current, math.Max(m.cfg.FailsafeA, minA))
+		}
 		return current
 	}
 
@@ -511,23 +526,29 @@ func (m *Manager) step(ctx context.Context) {
 	for i, l := range m.lps {
 		states[i] = l.lp.SuperchargeState()
 	}
-	// live currents for fast loadpoints, outside the lock
-	live := make([]*[]float64, len(m.lps))
-	liveErr := make([]error, len(m.lps))
+	// live charger currents, outside the lock: fast chargers every step, the others
+	// every slowReadS, since a reading from the loadpoint's own cycle is too old to steer by
 	m.mu.Lock()
 	cfgs := make([]LpConfig, len(m.lps))
 	for i, l := range m.lps {
 		cfgs[i] = m.cfg.Loadpoints[l.name]
 	}
 	m.mu.Unlock()
+	liveErr := make([]error, len(m.lps))
 	for i, l := range m.lps {
-		if cfgs[i].Fast && cfgs[i].MeasureTopic == "" {
-			if cur, err := l.lp.SuperchargeCurrents(); err == nil {
-				live[i] = &cur
-			} else {
-				liveErr[i] = err
-			}
+		if cfgs[i].MeasureTopic != "" {
+			continue
 		}
+		if !cfgs[i].Fast && time.Since(l.liveAt) < slowReadS*time.Second {
+			continue
+		}
+		cur, err := l.lp.SuperchargeCurrents()
+		if err != nil {
+			liveErr[i] = err
+			l.liveOK = false
+			continue
+		}
+		l.live, l.liveAt, l.liveOK = sumCurrents(cur), time.Now(), true
 	}
 
 	m.mu.Lock()
@@ -567,22 +588,18 @@ func (m *Manager) step(ctx context.Context) {
 			} else {
 				measured, stale, src = lastCycleAmps(st, volts), true, "evcc"
 			}
-		case c.Fast:
-			if live[i] != nil {
-				measured, stale, src = sumCurrents(*live[i]), false, "charger"
-			} else {
-				measured, stale, src = lastCycleAmps(st, volts), true, "evcc"
+		case l.liveOK && time.Since(l.liveAt) <= liveFreshS*time.Second:
+			measured, stale, src = l.live, false, "charger"
+		default:
+			measured, stale, src = lastCycleAmps(st, volts), true, "evcc"
+			// a fast charger that stops answering while charging leaves the loop blind
+			if c.Fast && liveErr[i] != nil && !errors.Is(liveErr[i], api.ErrNotAvailable) {
 				if st.Charging || st.Enabled {
 					blindCharger = true
 				}
-				if liveErr[i] != nil {
-					m.lastError = fmt.Sprintf("%s current: %v", st.Title, liveErr[i])
-				}
+				m.lastError = fmt.Sprintf("%s current: %v", st.Title, liveErr[i])
 			}
-		default:
-			measured, stale, src = lastCycleAmps(st, volts), true, "evcc"
 		}
-		_ = phases
 
 		wants := st.Connected && st.DemandA > 0 && st.DemandA+1e-9 >= st.MinA
 		minA := st.MinA * float64(phases)
@@ -634,6 +651,10 @@ func (m *Manager) step(ctx context.Context) {
 	}
 	if ok {
 		sm.VaKVA, sm.Volt, sm.Watts, sm.Var = rd.VaKVA, UsableVolts(rd.Volts), rd.Watts, rd.Var
+	}
+
+	for _, lp := range lps {
+		m.ctl.External(lp.Key, sm.T, lp.Connected && lp.Wants, int(lp.MaxA))
 	}
 
 	cmd := m.ctl.Step(sm)
@@ -1174,6 +1195,7 @@ func (m *Manager) UpdateConfig(patch []byte) (Config, error) {
 	wasEnabled := m.cfg.Enabled
 	// Settings is shared with the controller by pointer: copy in place
 	m.cfg.Enabled = next.Enabled
+	m.cfg.FailsafeA = next.FailsafeA
 	m.cfg.MeterURI = next.MeterURI
 	m.cfg.Q, m.cfg.K, m.cfg.ContractKVA = next.Q, next.K, next.ContractKVA
 	m.cfg.Loadpoints = next.Loadpoints
