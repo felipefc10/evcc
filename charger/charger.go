@@ -91,7 +91,16 @@ func NewConfigurableFromConfig(ctx context.Context, other map[string]any) (api.C
 	if err != nil {
 		return nil, fmt.Errorf("getmaxcurrent: %w", err)
 	}
-	implement.May(c, implement.CurrentGetter(getMaxCurrent))
+	if getMaxCurrent != nil {
+		implement.Has(c, implement.CurrentGetter(func() (float64, error) {
+			v, err := getMaxCurrent()
+			// no reading yet is not a fault: the loadpoint falls back to measured currents
+			if errors.Is(err, api.ErrOutdated) {
+				return 0, api.ErrNotAvailable
+			}
+			return v, err
+		}))
+	}
 
 	// decorate phases
 	if cc.Phases1p3p != nil {
