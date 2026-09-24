@@ -33,6 +33,7 @@ func NewConfigurableFromConfig(ctx context.Context, other map[string]any) (api.C
 		embed                               `mapstructure:",squash"`
 		Status, Enable, Enabled, MaxCurrent plugin.Config
 		MaxCurrentMillis                    *plugin.Config
+		GetMaxCurrent                       *plugin.Config
 		Identify, Phases1p3p, GetPhases     *plugin.Config
 		Wakeup                              *plugin.Config
 		Soc                                 *plugin.Config
@@ -83,6 +84,14 @@ func NewConfigurableFromConfig(ctx context.Context, other map[string]any) (api.C
 		return nil, fmt.Errorf("maxcurrentmillis: %w", err)
 	}
 	implement.May(c, implement.ChargerEx(maxcurrentmillis))
+
+	// decorate current getter: the current the charger or car is actually set to, so a
+	// command the device dropped is noticed and sent again
+	getMaxCurrent, err := cc.GetMaxCurrent.FloatGetter(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("getmaxcurrent: %w", err)
+	}
+	implement.May(c, implement.CurrentGetter(getMaxCurrent))
 
 	// decorate phases
 	if cc.Phases1p3p != nil {
