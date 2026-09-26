@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -45,6 +46,20 @@ type Circuit struct {
 
 func init() {
 	registry.AddCtx(api.Custom, NewConfigurableFromConfig)
+}
+
+// standIn reports whether another controller holds the house limit right now
+var standIn atomic.Pointer[func() bool]
+
+// SetStandIn registers a controller that takes over the house limit while f reports true.
+// Its planned overloads are then logged at debug level instead of as warnings.
+func SetStandIn(f func() bool) {
+	standIn.Store(&f)
+}
+
+func steppedAside() bool {
+	f := standIn.Load()
+	return f != nil && (*f)()
 }
 
 // NewConfigurableFromConfig creates a new circuit from config
@@ -320,14 +335,19 @@ func (c *Circuit) Update(loadpoints []api.CircuitLoad) (err error) {
 	maxCurrent := c.GetMaxCurrent()
 
 	defer func() {
+		warn := c.log.WARN
+		if steppedAside() {
+			warn = c.log.DEBUG
+		}
+
 		if maxPower != 0 && c.power > maxPower {
-			c.log.WARN.Printf("over power detected: %.0fW > %.0fW", c.power, maxPower)
+			warn.Printf("over power detected: %.0fW > %.0fW", c.power, maxPower)
 		} else {
 			c.log.DEBUG.Printf("power: %.0fW", c.power)
 		}
 
 		if maxCurrent != 0 && c.current > maxCurrent {
-			c.log.WARN.Printf("over current detected: %.3gA > %.3gA", c.current, maxCurrent)
+			warn.Printf("over current detected: %.3gA > %.3gA", c.current, maxCurrent)
 		} else {
 			c.log.DEBUG.Printf("current: %.3gA", c.current)
 		}

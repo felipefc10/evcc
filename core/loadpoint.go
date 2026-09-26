@@ -921,7 +921,8 @@ func (lp *Loadpoint) syncCharger() error {
 			if current, err = cg.GetMaxCurrent(); err == nil {
 				// smallest adjustment most PWM-Controllers can do is: 100%÷256×0,6A = 0.234A
 				if delta := math.Abs(lp.offeredCurrent - current); delta > 0.23 {
-					if shouldBeConsistent && delta >= 1 {
+					// load management sets currents itself while it owns the loadpoint
+					if shouldBeConsistent && delta >= 1 && !lp.superchargeOwns() {
 						lp.log.WARN.Printf("charger logic error: current mismatch (got %.3gA, expected %.3gA) - make sure your interval is at least 30s", current, lp.offeredCurrent)
 					}
 					lp.offeredCurrent = current
@@ -936,7 +937,7 @@ func (lp *Loadpoint) syncCharger() error {
 		if !isCg || errors.Is(err, api.ErrNotAvailable) {
 			// validate if current too high by more than 1A (https://github.com/evcc-io/evcc/issues/14731)
 			if current := lp.GetMaxPhaseCurrent(); current > lp.offeredCurrent+1.0 {
-				if shouldBeConsistent && !lp.chargerHasFeature(api.Heating) {
+				if shouldBeConsistent && !lp.chargerHasFeature(api.Heating) && !lp.superchargeOwns() {
 					lp.log.WARN.Printf("charger logic error: current mismatch (got %.3gA measured, expected %.3gA) - make sure your interval is at least 30s", current, lp.offeredCurrent)
 				}
 				lp.offeredCurrent = current

@@ -342,6 +342,9 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 	add := func(name string, ok bool, format string, args ...any) {
 		checks = append(checks, Check{Name: name, OK: ok, Detail: fmt.Sprintf(format, args...)})
 	}
+	note := func(name string, format string, args ...any) {
+		checks = append(checks, Check{Name: name, OK: true, Info: true, Detail: fmt.Sprintf(format, args...)})
+	}
 
 	add("Load management", cfg.Enabled, "%s", map[bool]string{true: "switched on", false: "switched off: nothing holds the house under the never-trip line"}[cfg.Enabled])
 
@@ -361,9 +364,9 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 	}
 
 	cv := cfg.Curve()
-	add("Never-trip line", true, "%.2f kVA (%.2f × %.2f kVA contract, Q %.0f)", cv.ThresholdKVA(), cv.K, cv.SCkVA, cv.Q)
+	add("Never-trip line", true, "%.2f kVA (%.2f × %.2f kVA contract)", cv.ThresholdKVA(), cv.K, cv.SCkVA)
 
-	add("Loadpoints", len(lps) > 0, "%d loadpoint(s)", len(lps))
+	add("Loadpoints", len(lps) > 0, "%d %s", len(lps), map[bool]string{true: "loadpoint", false: "loadpoints"}[len(lps) == 1])
 	for _, l := range lps {
 		st := l.lp.SuperchargeState()
 		lc := cfg.Loadpoints[l.name]
@@ -382,14 +385,14 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 				add(st.Title+" current", false, "fast loadpoint, but the charger current cannot be read: %v", err)
 			}
 		default:
-			add(st.Title+" current", true, "taken from the loadpoint's own cycle (treated as stale)")
+			note(st.Title+" current", "read from the loadpoint every few seconds, so its bursts stay short")
 		}
-		add(st.Title+" range", st.MaxA >= st.MinA && st.MinA > 0, "%.0f-%.0f A, priority %d", st.MinA, st.MaxA, st.Priority)
+		add(st.Title+" range", st.MaxA >= st.MinA && st.MinA > 0, "%.0f–%.0f A, priority %d", st.MinA, st.MaxA, st.Priority)
 		if lc.MaxTopic != "" {
 			if v, ok := m.feed(lc.MaxTopic); ok {
 				add(st.Title+" car maximum", true, "MQTT %s: %.0f A, planning up to %.0f A", lc.MaxTopic, v, m.carMaxA(lc, st))
 			} else {
-				add(st.Title+" car maximum", true, "MQTT %s, nothing received yet: planning up to %.0f A", lc.MaxTopic, st.MaxA)
+				note(st.Title+" car maximum", "MQTT %s, nothing received yet: planning up to %.0f A", lc.MaxTopic, st.MaxA)
 			}
 		}
 		if lc.TempTopic != "" {
@@ -397,17 +400,16 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 				v, _ := m.feed(lc.TempTopic)
 				add(st.Title+" temperature", *age <= tempFreshS, "%.0f °C, %.0f s ago", v, *age)
 			} else {
-				add(st.Title+" temperature", true, "no reading yet: unknown is never treated as cool, bursting is not blocked by it")
+				note(st.Title+" temperature", "no reading yet: unknown is never treated as cool, bursting is not blocked by it")
 			}
 		}
 	}
 
 	s := cfg.Settings
 	window := cv.BurstWindow(s.BurstKVA, s.BumpKVA, s.MarginS)
-	if s.AnySupercharge() {
-		add("Burst window", window >= 5.0, "%.1f s at %.2f kVA (bump %.2f kVA, margin %.0f s)", window, s.BurstKVA, s.BumpKVA, s.MarginS)
-	}
-	add("Baseline backstop", s.BaseStopCloseness > s.BaseAbortCloseness, "shed at %.2f, stop at %.2f closeness", s.BaseAbortCloseness, s.BaseStopCloseness)
+	// listed even with no car supercharging, so the list keeps its shape
+	add("Burst window", window >= 5.0 || !s.AnySupercharge(), "%.1f s at %.2f kVA, with room for %.2f kVA more house load and %.0f s to spare", window, s.BurstKVA, s.BumpKVA, s.MarginS)
+	add("Safety backstop", s.BaseStopCloseness > s.BaseAbortCloseness, "cars go to minimum at %.0f %% and stop at %.0f %% breaker budget", s.BaseAbortCloseness*100, s.BaseStopCloseness*100)
 	_ = running
 
 	m.mu.Lock()
