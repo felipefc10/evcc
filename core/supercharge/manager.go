@@ -224,6 +224,7 @@ type Check struct {
 	Name   string `json:"name"`
 	OK     bool   `json:"ok"`
 	Detail string `json:"detail"`
+	Info   bool   `json:"info,omitempty"` // passes, but is a limitation worth knowing
 }
 
 // NewManager creates the manager. lps are in site order with their config names.
@@ -1375,35 +1376,36 @@ func (m *Manager) ImportAddon(settings map[string]any, learned json.RawMessage, 
 		f("base_ti_stop_s", &s.BaseTiStopS)
 		f("trim_max_a", &s.TrimMaxA)
 		f("max_temp_c", &s.MaxTempC)
-		// ticks and their deadlines
-		scope, _ := settings["supercharge_scope"].(string)
-		untils, _ := settings["burst_until_by_key"].(string)
-		dl := map[string]int64{}
-		for part := range strings.SplitSeq(strings.ReplaceAll(untils, ";", ","), ",") {
-			k, v, _ := strings.Cut(strings.TrimSpace(part), ":")
-			if at, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil && at > 0 {
-				dl[strings.TrimSpace(k)] = int64(at)
-			}
-		}
-		s.Supercharge = map[string]int64{}
-		for part := range strings.SplitSeq(scope, ",") {
-			k := strings.TrimSpace(part)
-			if k == "" {
-				continue
-			}
-			if k == "all" {
-				for from, to := range names {
-					s.Supercharge[to] = dl[from]
+		// ticks and their deadlines, only when the import carries them: leaving them out keeps the current ones
+		if scope, ok := settings["supercharge_scope"].(string); ok {
+			untils, _ := settings["burst_until_by_key"].(string)
+			dl := map[string]int64{}
+			for part := range strings.SplitSeq(strings.ReplaceAll(untils, ";", ","), ",") {
+				k, v, _ := strings.Cut(strings.TrimSpace(part), ":")
+				if at, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil && at > 0 {
+					dl[strings.TrimSpace(k)] = int64(at)
 				}
-				continue
 			}
-			if to, ok := names[k]; ok {
-				s.Supercharge[to] = dl[k]
+			s.Supercharge = map[string]int64{}
+			for part := range strings.SplitSeq(scope, ",") {
+				k := strings.TrimSpace(part)
+				if k == "" {
+					continue
+				}
+				if k == "all" {
+					for from, to := range names {
+						s.Supercharge[to] = dl[from]
+					}
+					continue
+				}
+				if to, ok := names[k]; ok {
+					s.Supercharge[to] = dl[k]
+				}
 			}
-		}
-		for k, v := range s.Supercharge {
-			if v > 0 && v <= time.Now().Unix() {
-				delete(s.Supercharge, k)
+			for k, v := range s.Supercharge {
+				if v > 0 && v <= time.Now().Unix() {
+					delete(s.Supercharge, k)
+				}
 			}
 		}
 		if q, ok := settings["icp_q"].(float64); ok {
@@ -1418,7 +1420,7 @@ func (m *Manager) ImportAddon(settings map[string]any, learned json.RawMessage, 
 		if u, ok := settings["meter_url"].(string); ok && u != "" {
 			m.cfg.MeterURI = u
 		}
-		m.cfg.ImportedFrom = "Supercharging add-on"
+		m.cfg.ImportedFrom = "Supercharging add-on, " + time.Now().Format("2 Jan 2006 15:04")
 		sc := s.Supercharge
 		m.cfg.sanitize()
 		m.cfg.Settings.Supercharge = sc

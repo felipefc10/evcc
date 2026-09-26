@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/evcc-io/evcc/core/circuit"
 	"github.com/evcc-io/evcc/core/supercharge"
 	settingsdb "github.com/evcc-io/evcc/db/settings"
 	"github.com/evcc-io/evcc/plugin/mqtt"
@@ -33,6 +34,7 @@ func superchargeSubscribe(topic string, cb func(string)) error {
 // prepareSupercharge creates the whole-house load manager and attaches every loadpoint
 func (site *Site) prepareSupercharge() {
 	site.supercharge = supercharge.NewManager(util.NewLogger("supercharge"), superchargeStore{}, superchargeSubscribe, site.publish)
+	circuit.SetStandIn(site.supercharge.Owns)
 
 	lpDevices := config.Loadpoints().Devices()
 	for id, lp := range site.loadpoints {
