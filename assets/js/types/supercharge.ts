@@ -74,6 +74,7 @@ export interface LoadCheck {
   name: string;
   ok: boolean;
   detail: string;
+  info?: boolean;
 }
 
 export interface LoadState {

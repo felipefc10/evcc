@@ -107,7 +107,10 @@ export default defineComponent({
 			return this.battery?.soc;
 		},
 		loadManagementActive(): boolean {
-			return !!this.supercharging && (this.supercharging.enabled || this.supercharging.configured);
+			return (
+				!!this.supercharging &&
+				(this.supercharging.enabled || this.supercharging.configured)
+			);
 		},
 		sessionsOnlyInMore(): boolean {
 			return this.experimental || (this.loadManagementActive && this.batteryConfigured);

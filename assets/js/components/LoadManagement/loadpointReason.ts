@@ -9,19 +9,35 @@ export interface ReasonFormat {
   time: (iso: string) => string;
 }
 
+// Why a car held at 0 A waits: a car ahead of it in the order, or no room under the line.
+export function waitReason(lp: LoadLoadpoint, state: LoadState, t: T): string {
+  const ahead = (state.loadpoints || []).find(
+    (o) => o.index !== lp.index && o.priority > lp.priority && !o.paused && o.setpointA > 0
+  );
+  return ahead
+    ? t("loadManagement.reason.firstOther", { name: ahead.title })
+    : t("loadManagement.reason.noRoom");
+}
+
 // The one sentence a loadpoint card owes its reader: why a car gets what it gets.
 export function loadpointReason(lp: LoadLoadpoint, state: LoadState, f: ReasonFormat): string {
   if (!lp.connected) return f.t("loadManagement.reason.notConnected");
   if (lp.stoodOffS > 0) {
     return f.t("loadManagement.reason.stoodOff", { time: f.duration(lp.stoodOffS) });
   }
-  if (!lp.wants) return f.t("loadManagement.reason.notWanted");
+  if (!lp.wants) {
+    if (lp.mode === "off") return f.t("loadManagement.reason.modeOff");
+    if (lp.limitSoc > 0 && lp.soc >= lp.limitSoc) {
+      return f.t("loadManagement.reason.atLimit", { soc: Math.round(lp.limitSoc) });
+    }
+    return f.t("loadManagement.reason.notWanted");
+  }
   if (!state.enabled) return f.t("loadManagement.reason.disabled");
   if (!state.running) return f.t("loadManagement.reason.standby");
   if (lp.paused && lp.measuredA > 0.5) {
     return f.t("loadManagement.reason.pausedDrawing", { amps: f.number(lp.measuredA, 1) });
   }
-  if (lp.paused) return f.t("loadManagement.reason.paused");
+  if (lp.paused) return "";
   const parts: string[] = [];
   if (lp.setpointA < lp.allocatedA) {
     parts.push(f.t("loadManagement.reason.comingUp"));
