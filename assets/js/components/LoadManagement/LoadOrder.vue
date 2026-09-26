@@ -1,40 +1,26 @@
 <template>
 	<section class="order" aria-labelledby="load-order-title" data-testid="load-order">
 		<div class="order-head">
-			<h2 id="load-order-title" class="order-title">{{ $t("loadManagement.order.title") }}</h2>
+			<h2 id="load-order-title" class="order-title">
+				{{ $t("loadManagement.order.title") }}
+			</h2>
 			<span v-if="movable" class="order-hint">{{ $t("loadManagement.order.hint") }}</span>
 		</div>
 		<ol class="order-list">
-			<li v-for="(row, i) in rows" :key="row.lp.name">
-				<div v-if="movable && i > 0" class="link">
-					<button
-						type="button"
-						class="share"
-						:class="{ 'share--on': view.ties[i] }"
-						:aria-pressed="view.ties[i]"
-						data-testid="load-share"
-						@click="toggleShare(i)"
-					>
-						<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-							<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7" />
-							<path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7" />
-						</svg>
-						{{ view.ties[i] ? $t("loadManagement.order.sharing") : $t("loadManagement.order.share") }}
-					</button>
-				</div>
+			<li v-for="row in rows" :key="row.lp.name">
 				<LoadLoadpointCard
 					:lp="row.lp"
 					:state="state"
 					:color="colorOf(row.lp.index)"
 					:priority="row.priority"
 					:place="row.place"
-					:first="row.first"
+					:can-first="row.canFirst"
 					:movable="movable"
-					:can-up="i > 0"
-					:can-down="i < rows.length - 1"
 					:lifted="drag === row.lp.name"
 					@move="move(row.lp.name, $event)"
 					@grip="grip(row.lp.name, $event)"
+					@set-priority="setPriority(row.lp, $event)"
+					@charge-first="chargeFirst(row.lp)"
 					@open-supercharge="$emit('open-supercharge', $event)"
 				/>
 			</li>
@@ -57,11 +43,11 @@ interface Arrangement {
 }
 
 const TOP = 10;
-const PENDING_MS = 15000;
+const PENDING_MS = 10000;
 
-// "Which car charges first" is an order; evcc stores it as a priority number where larger
-// is served first and equal numbers share. The list is the order: dragging a card, its arrows
-// or the share link between two cards writes 10, 9, 8 … down the list, changed numbers only.
+// "Which car charges first" is evcc's priority number: larger is served first and equal
+// numbers share. Each card sets its own number with a stepper, "Charge first" puts a car on
+// top, and dragging a card writes 10, 9, 8 … down the list. Only changed numbers are written.
 export default defineComponent({
 	name: "LoadOrder",
 	components: { LoadLoadpointCard },
@@ -71,6 +57,8 @@ export default defineComponent({
 	emits: ["open-supercharge"],
 	data() {
 		return {
+			// numbers just written stand for a while: the published state lags a second or two behind
+			wanted: {} as Record<string, number>,
 			pending: null as Arrangement | null,
 			live: null as Arrangement | null,
 			drag: null as string | null,
@@ -95,11 +83,12 @@ export default defineComponent({
 				return i < 0 ? Number.MAX_SAFE_INTEGER : i;
 			};
 			const sorted = [...this.lps].sort(
-				(a, b) => b.priority - a.priority || pos(a.name) - pos(b.name) || a.index - b.index
+				(a, b) =>
+					this.prio(b) - this.prio(a) || pos(a.name) - pos(b.name) || a.index - b.index
 			);
 			return {
 				order: sorted.map((lp) => lp.name),
-				ties: sorted.map((lp, i) => i > 0 && lp.priority === sorted[i - 1]!.priority),
+				ties: sorted.map((lp, i) => i > 0 && this.prio(lp) === this.prio(sorted[i - 1]!)),
 			};
 		},
 		view(): Arrangement {
@@ -113,14 +102,17 @@ export default defineComponent({
 			return this.lps.length > 1;
 		},
 		rows() {
-			const prios = this.numbers(this.view);
+			const arranged = this.live || this.pending;
+			const prios = arranged
+				? this.numbers(this.view)
+				: this.view.order.map((n) => this.prio(this.byName[n]!));
 			const levels = [...new Set(prios)];
 			return this.view.order.map((name, i) => {
 				const p = prios[i]!;
-				const level = levels.indexOf(p);
 				const tied = prios.filter((x) => x === p).length > 1;
 				let place = "";
 				if (this.movable) {
+					const level = levels.indexOf(p);
 					place = tied
 						? this.$t("loadManagement.order.shares")
 						: level < 4
@@ -129,9 +121,10 @@ export default defineComponent({
 				}
 				return {
 					lp: this.byName[name]!,
-					priority: this.movable ? p : this.byName[name]!.priority,
+					priority: p,
 					place,
-					first: level === 0,
+					// sharing first place counts as not first yet, so both can step ahead
+					canFirst: this.movable && (i > 0 || (tied && p === prios[0])),
 				};
 			});
 		},
@@ -139,7 +132,9 @@ export default defineComponent({
 	watch: {
 		"view.order": {
 			handler(order: string[]) {
-				if (!this.live) this.lastOrder = [...order];
+				if (!this.live && order.join("|") !== this.lastOrder.join("|")) {
+					this.lastOrder = [...order];
+				}
 			},
 			immediate: true,
 		},
@@ -155,6 +150,9 @@ export default defineComponent({
 	methods: {
 		colorOf(i: number): string {
 			return colors.palette[i % colors.palette.length] || "#60A5FA";
+		},
+		prio(lp: LoadLoadpoint): number {
+			return lp.name in this.wanted ? this.wanted[lp.name]! : lp.priority;
 		},
 		numbers(a: Arrangement): number[] {
 			let p = TOP;
@@ -173,6 +171,62 @@ export default defineComponent({
 			this.pending = null;
 			clearTimeout(this.timer);
 		},
+		async write(changes: { lp: LoadLoadpoint; p: number }[]) {
+			this.error = "";
+			const wanted = { ...this.wanted };
+			changes.forEach((c) => (wanted[c.lp.name] = c.p));
+			this.wanted = wanted;
+			setTimeout(() => {
+				const left = { ...this.wanted };
+				changes.forEach((c) => {
+					if (left[c.lp.name] === c.p) delete left[c.lp.name];
+				});
+				this.wanted = left;
+			}, PENDING_MS);
+			try {
+				await Promise.all(
+					changes.map((c) => api.post(`loadpoints/${c.lp.index + 1}/priority/${c.p}`))
+				);
+			} catch (e: any) {
+				const back = { ...this.wanted };
+				changes.forEach((c) => delete back[c.lp.name]);
+				this.wanted = back;
+				this.error = this.$t("loadManagement.order.failed", {
+					error: e?.response?.data?.error || String(e),
+				});
+			}
+		},
+		setPriority(lp: LoadLoadpoint, p: number) {
+			const want = Math.max(0, Math.min(TOP, p));
+			if (want === this.prio(lp)) return;
+			this.write([{ lp, p: want }]);
+		},
+		// this car on top: it gets the highest number, anyone already there steps down one
+		chargeFirst(lp: LoadLoadpoint) {
+			const changes = [{ lp, p: TOP }];
+			for (const other of this.lps) {
+				if (other.name !== lp.name && this.prio(other) >= TOP) {
+					changes.push({ lp: other, p: TOP - 1 });
+				}
+			}
+			this.write(changes.filter((c) => this.prio(c.lp) !== c.p));
+		},
+		// a drop writes 10, 9, 8 … down the list
+		async commit(a: Arrangement) {
+			const want = this.numbers(a);
+			const changes = a.order
+				.map((name, i) => ({ lp: this.byName[name]!, p: want[i]! }))
+				.filter((c) => c.lp && this.prio(c.lp) !== c.p);
+			if (!changes.length) {
+				this.clearPending();
+				return;
+			}
+			this.pending = { order: [...a.order], ties: [...a.ties] };
+			clearTimeout(this.timer);
+			this.timer = setTimeout(() => (this.pending = null), PENDING_MS);
+			await this.write(changes);
+			if (this.error) this.clearPending();
+		},
 		// a moved loadpoint no longer shares with anyone; untouched neighbours keep sharing
 		rearranged(from: Arrangement, order: string[], moved: string): Arrangement {
 			const tied = new Set<string>();
@@ -183,34 +237,14 @@ export default defineComponent({
 				order,
 				ties: order.map(
 					(n, i) =>
-						i > 0 && n !== moved && order[i - 1] !== moved && tied.has(`${order[i - 1]}|${n}`)
+						i > 0 &&
+						n !== moved &&
+						order[i - 1] !== moved &&
+						tied.has(`${order[i - 1]}|${n}`)
 				),
 			};
 		},
-		async commit(a: Arrangement) {
-			this.error = "";
-			const want = this.numbers(a);
-			const changes = a.order
-				.map((name, i) => ({ lp: this.byName[name]!, p: want[i]! }))
-				.filter((c) => c.lp && c.lp.priority !== c.p);
-			if (!changes.length) {
-				this.clearPending();
-				return;
-			}
-			this.pending = { order: [...a.order], ties: [...a.ties] };
-			clearTimeout(this.timer);
-			this.timer = setTimeout(() => (this.pending = null), PENDING_MS);
-			try {
-				await Promise.all(
-					changes.map((c) => api.post(`loadpoints/${c.lp.index + 1}/priority/${c.p}`))
-				);
-			} catch (e: any) {
-				this.clearPending();
-				this.error = this.$t("loadManagement.order.failed", {
-					error: e?.response?.data?.error || String(e),
-				});
-			}
-		},
+		// keyboard on the drag handle: arrow up and down move the card
 		move(name: string, dir: number) {
 			const v = this.view;
 			const i = v.order.indexOf(name);
@@ -220,12 +254,6 @@ export default defineComponent({
 			order[i] = order[j]!;
 			order[j] = name;
 			this.commit(this.rearranged(v, order, name));
-		},
-		toggleShare(i: number) {
-			const v = this.view;
-			const ties = [...v.ties];
-			ties[i] = !ties[i];
-			this.commit({ order: [...v.order], ties });
 		},
 		// pointer events rather than HTML5 drag and drop, so a finger on a phone drags too
 		grip(name: string, ev: PointerEvent) {
@@ -245,7 +273,9 @@ export default defineComponent({
 			document.body.style.userSelect = "none";
 
 			const onMove = (e: PointerEvent) => {
-				const cards = [...(this.$el as HTMLElement).querySelectorAll<HTMLElement>("[data-name]")];
+				const cards = [
+					...(this.$el as HTMLElement).querySelectorAll<HTMLElement>("[data-name]"),
+				];
 				const others = cards.filter((c) => c.dataset["name"] !== name);
 				const target = others.filter((c) => {
 					const r = c.getBoundingClientRect();
@@ -283,22 +313,15 @@ export default defineComponent({
 <style scoped>
 .order-head {
 	display: flex;
-	flex-wrap: wrap;
-	align-items: baseline;
-	justify-content: space-between;
-	gap: 0.25rem 1rem;
-	padding: 0 0.5rem 0.75rem;
+	flex-direction: column;
+	gap: 0.25rem;
+	padding: 0 0 0.75rem;
 }
 .order-title {
 	margin: 0;
-	font-size: 0.8rem;
-	font-weight: 700;
-	letter-spacing: 0.08em;
-	text-transform: uppercase;
-	color: var(--evcc-gray);
 }
 .order-hint {
-	font-size: 0.75rem;
+	font-size: 0.875rem;
 	color: var(--evcc-gray);
 }
 .order-list {
@@ -307,31 +330,6 @@ export default defineComponent({
 	padding: 0;
 	display: flex;
 	flex-direction: column;
-}
-.link {
-	display: flex;
-	justify-content: center;
-	padding: 0.5rem 0;
-}
-.share {
-	display: inline-flex;
-	align-items: center;
-	gap: 0.4rem;
-	min-height: 2rem;
-	padding: 0 0.9rem;
-	border-radius: 999px;
-	font-size: 0.75rem;
-	font-weight: 700;
-	background: var(--evcc-background);
-	color: var(--evcc-gray);
-	border: 1px solid var(--evcc-gray-25);
-}
-.share:hover {
-	color: var(--evcc-default-text);
-}
-.share--on {
-	color: var(--evcc-dark-green);
-	border-color: var(--evcc-dark-green);
-	background: color-mix(in srgb, var(--evcc-dark-green) 14%, transparent);
+	gap: 1rem;
 }
 </style>

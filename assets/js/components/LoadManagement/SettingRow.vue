@@ -1,14 +1,35 @@
 <template>
-	<div class="setting-row">
+	<div class="setting-row" :class="{ 'setting-row--inline': inline }">
 		<div class="setting-text">
 			<label :for="id" class="setting-label">{{ label }}</label>
 			<div v-if="help" class="setting-help">{{ help }}</div>
 		</div>
 		<div class="setting-control" :class="{ 'setting-control--wide': wide }">
 			<slot></slot>
-			<div v-if="feedback" class="setting-feedback" :class="feedback.ok ? 'ok' : 'bad'" role="status">
-				<svg v-if="feedback.ok" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12 5 5 9-10" /></svg>
-				{{ feedback.text }}
+			<div class="setting-meta" :class="{ 'setting-meta--flow': feedback && !feedback.ok }">
+				<div
+					v-if="feedback"
+					class="setting-feedback"
+					:class="feedback.ok ? 'ok' : 'bad'"
+					role="status"
+				>
+					<svg
+						v-if="feedback.ok"
+						width="12"
+						height="12"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="3"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="m5 12 5 5 9-10" />
+					</svg>
+					{{ feedback.text }}
+				</div>
+				<slot name="meta"></slot>
 			</div>
 		</div>
 	</div>
@@ -26,6 +47,8 @@ export default defineComponent({
 		help: { type: String, default: "" },
 		feedback: { type: Object as PropType<{ ok: boolean; text: string } | undefined> },
 		wide: Boolean,
+		// a switch: label and control side by side even on phones
+		inline: Boolean,
 	},
 });
 </script>
@@ -33,9 +56,9 @@ export default defineComponent({
 <style scoped>
 .setting-row {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 1.5rem;
-	padding: 1.1rem 0;
+	padding: 1.1rem 0 1.6rem;
 	border-top: 1px solid var(--evcc-gray-25);
 }
 .setting-text {
@@ -52,6 +75,7 @@ export default defineComponent({
 	margin-top: 0.2rem;
 }
 .setting-control {
+	position: relative;
 	flex: 0 0 auto;
 	width: 13rem;
 	display: flex;
@@ -70,8 +94,27 @@ export default defineComponent({
 	width: 100%;
 	flex-wrap: nowrap;
 }
+/* short notes (Saved, Reset) sit in the row's bottom padding instead of reserving a line;
+   an error can run long, so it takes its place in the flow */
+.setting-meta {
+	position: absolute;
+	top: 100%;
+	left: 0;
+	right: 0;
+	margin-top: 0.2rem;
+	display: flex;
+	flex-wrap: wrap;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.25rem 0.75rem;
+	line-height: 1.2;
+}
+.setting-meta--flow {
+	position: static;
+	margin-top: 0;
+}
 .setting-feedback {
-	font-size: 0.75rem;
+	font-size: 0.8125rem;
 	font-weight: 600;
 	display: inline-flex;
 	align-items: center;
@@ -92,6 +135,14 @@ export default defineComponent({
 	.setting-control {
 		width: 100%;
 		align-items: stretch;
+	}
+	.setting-row--inline {
+		flex-direction: row;
+		align-items: flex-start;
+	}
+	.setting-row--inline .setting-control {
+		width: auto;
+		align-items: flex-end;
 	}
 }
 </style>

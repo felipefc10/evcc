@@ -15,7 +15,13 @@
 				@keydown.up.prevent="$emit('move', -1)"
 				@keydown.down.prevent="$emit('move', 1)"
 			>
-				<svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+				<svg
+					width="18"
+					height="18"
+					viewBox="0 0 24 24"
+					fill="currentColor"
+					aria-hidden="true"
+				>
 					<circle cx="9" cy="6" r="1.6" />
 					<circle cx="15" cy="6" r="1.6" />
 					<circle cx="9" cy="12" r="1.6" />
@@ -24,21 +30,44 @@
 					<circle cx="15" cy="18" r="1.6" />
 				</svg>
 			</button>
-			<span
-				class="prio"
-				:class="{ 'prio--first': first }"
-				:title="$t('loadManagement.order.prioTitle', { n: priority })"
-				data-testid="load-priority"
-			>
-				<small>{{ $t("loadManagement.order.prio") }}</small>
-				<span>{{ priority }}</span>
-			</span>
 			<div class="who">
 				<h3 class="title">
 					<span class="swatch" :style="{ background: color }"></span>
 					<span class="title-text">{{ lp.title }}</span>
 				</h3>
-				<div class="sub" :class="{ 'text-warning': warning }">{{ subline }}</div>
+				<div v-if="placeLine" class="place-row">
+					<span class="sub">{{ placeLine }}</span>
+					<button
+						v-if="canFirst"
+						type="button"
+						class="btn btn-sm btn-pill first"
+						:title="$t('loadManagement.order.chargeFirstHelp')"
+						data-testid="load-charge-first"
+						@click="$emit('charge-first')"
+					>
+						<svg
+							width="11"
+							height="11"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.8"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							aria-hidden="true"
+						>
+							<path d="m6 15 6-6 6 6" />
+						</svg>
+						{{ $t("loadManagement.order.chargeFirst") }}
+					</button>
+				</div>
+				<div
+					class="sub"
+					:class="{ 'warn-text': warning, 'sub--strong': bursting }"
+					data-testid="load-reason"
+				>
+					{{ subline }}
+				</div>
 			</div>
 			<div class="allowed">
 				<div class="label">{{ $t("loadManagement.card.allowed") }}</div>
@@ -46,43 +75,84 @@
 			</div>
 		</div>
 
-		<div class="facts">
-			<div v-for="f in facts" :key="f.label" :title="f.title">
-				<div class="label">{{ f.label }}</div>
-				<div class="value text-truncate">{{ f.value }}</div>
-			</div>
-		</div>
-
 		<div class="foot">
-			<SuperchargeSwitch
-				:index="lp.index"
-				:title="lp.title"
-				:active="lp.supercharge"
-				:until="lp.superchargeUntil"
-				@open="$emit('open-supercharge', $event)"
-			/>
-			<div v-if="movable" class="arrows">
-				<button
-					type="button"
-					class="arrow"
-					:disabled="!canUp"
-					:aria-label="$t('loadManagement.order.up', { name: lp.title })"
-					@click="$emit('move', -1)"
+			<div class="foot-actions">
+				<SuperchargePill
+					v-if="state.enabled"
+					:index="lp.index"
+					:title="lp.title"
+					:active="lp.supercharge"
+					:until="lp.superchargeUntil"
+					:paused="paused"
+					:note="waitNote"
+					:reserve="lp.supercharge || lp.paused"
+					stacked
+					@open="$emit('open-supercharge', $event)"
+				/>
+				<span v-else class="small text-muted">{{
+					$t("loadManagement.supercharge.needsOn")
+				}}</span>
+			</div>
+			<div v-if="movable" class="prio">
+				<span class="stepper-label" aria-hidden="true">{{
+					$t("loadManagement.order.priority")
+				}}</span>
+				<div
+					class="stepper"
+					role="group"
+					:aria-label="$t('loadManagement.order.priorityOf', { name: lp.title })"
+					data-testid="load-priority"
 				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 15 6-6 6 6" /></svg>
-				</button>
-				<button
-					type="button"
-					class="arrow"
-					:disabled="!canDown"
-					:aria-label="$t('loadManagement.order.down', { name: lp.title })"
-					@click="$emit('move', 1)"
-				>
-					<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
-				</button>
+					<button
+						type="button"
+						:disabled="priority <= 0"
+						:aria-label="$t('loadManagement.order.lower', { name: lp.title })"
+						data-testid="load-priority-down"
+						@click="$emit('set-priority', priority - 1)"
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.6"
+							stroke-linecap="round"
+							aria-hidden="true"
+						>
+							<path d="M5 12h14" />
+						</svg>
+					</button>
+					<span
+						class="stepper-value"
+						aria-live="polite"
+						data-testid="load-priority-value"
+						>{{ priority }}</span
+					>
+					<button
+						type="button"
+						:disabled="priority >= 10"
+						:aria-label="$t('loadManagement.order.raise', { name: lp.title })"
+						data-testid="load-priority-up"
+						@click="$emit('set-priority', priority + 1)"
+					>
+						<svg
+							width="14"
+							height="14"
+							viewBox="0 0 24 24"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2.6"
+							stroke-linecap="round"
+							aria-hidden="true"
+						>
+							<path d="M12 5v14M5 12h14" />
+						</svg>
+					</button>
+				</div>
 			</div>
 		</div>
-		<p v-if="lp.supercharge && !lp.fast" class="small text-muted mt-2 mb-0">
+		<p v-if="lp.supercharge && !lp.fast" class="small text-muted mb-0">
 			{{ $t("loadManagement.card.slowNote") }}
 		</p>
 	</article>
@@ -91,14 +161,15 @@
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
 import formatter from "@/mixins/formatter";
-import SuperchargeSwitch from "./SuperchargeSwitch.vue";
-import { loadpointReason } from "./loadpointReason";
+import SuperchargePill from "./SuperchargePill.vue";
+import { loadpointReason, waitReason } from "./loadpointReason";
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 
-// One loadpoint in the charging order: its priority, what it is allowed and why, and supercharge.
+// One loadpoint in the charging order: where it stands, what it is allowed and why,
+// its supercharge and its priority. The priority is evcc's own number, 0 to 10.
 export default defineComponent({
 	name: "LoadLoadpointCard",
-	components: { SuperchargeSwitch },
+	components: { SuperchargePill },
 	mixins: [formatter],
 	props: {
 		lp: { type: Object as PropType<LoadLoadpoint>, required: true },
@@ -106,27 +177,64 @@ export default defineComponent({
 		color: { type: String, default: "" },
 		priority: { type: Number, required: true },
 		place: { type: String, default: "" },
-		first: Boolean,
+		canFirst: Boolean,
 		movable: Boolean,
-		canUp: Boolean,
-		canDown: Boolean,
 		lifted: Boolean,
 	},
-	emits: ["open-supercharge", "move", "grip"],
+	emits: ["open-supercharge", "move", "grip", "set-priority", "charge-first"],
 	computed: {
+		placeLine(): string {
+			return this.place;
+		},
 		warning(): boolean {
 			return (this.lp.paused && this.lp.measuredA > 0.5) || this.lp.stoodOffS > 0;
 		},
-		// charging as planned: say where it stands in the order; otherwise say why not
+		bursting(): boolean {
+			return (
+				this.state.running &&
+				this.state.phase === "burst" &&
+				this.lp.supercharge &&
+				!this.lp.paused
+			);
+		},
+		// supercharge is on but cannot burst right now
+		paused(): boolean {
+			const s = this.state;
+			return (
+				this.lp.supercharge &&
+				(!!s.burstStoodDown || s.blind > 0 || s.tempBlock || this.lp.paused)
+			);
+		},
 		normal(): boolean {
 			const lp = this.lp;
 			return this.state.running && lp.connected && lp.wants && !lp.paused && !this.warning;
 		},
+		waitNote(): string {
+			if (!this.lp.paused || !this.state.running || !this.lp.wants) return "";
+			return waitReason(this.lp, this.state, (k, v) => this.$t(k, v || {}));
+		},
+		// supercharge is on, yet no burst runs: only the unusual reasons, the pill says the rest
+		superchargeWait(): string {
+			const s = this.state;
+			if (!this.lp.supercharge || this.bursting || !s.running) return "";
+			if (s.burstStoodDown) {
+				return this.$t("loadManagement.reason.scStoodDown", { reason: s.burstStoodDown });
+			}
+			if (s.tempBlock) return this.$t("loadManagement.reason.scTooWarm");
+			return "";
+		},
 		subline(): string {
 			const parts: string[] = [];
 			if (this.lp.vehicle) parts.push(this.lp.vehicle);
-			if (this.normal) {
-				if (this.place) parts.push(this.place);
+			if (this.superchargeWait) parts.push(this.superchargeWait);
+			if (this.bursting) {
+				parts.push(this.$t("loadManagement.reason.bursting"));
+			} else if (this.normal) {
+				parts.push(
+					this.$t("loadManagement.reason.measured", {
+						amps: this.fmtNumber(this.lp.measuredA, 1),
+					})
+				);
 				const eta = this.lp.forecast?.etaAt;
 				if (eta) {
 					parts.push(
@@ -149,33 +257,10 @@ export default defineComponent({
 			}
 			return parts.join(" · ");
 		},
+		// the same words as the main screen's Allowed
 		allowed(): string {
 			if (!this.state.running || !this.lp.wants) return "—";
-			// the reason line already says why a paused car gets nothing
-			return `${this.lp.paused ? 0 : this.lp.setpointA} A`;
-		},
-		facts() {
-			const lp = this.lp;
-			const res: { label: string; value: string; title?: string }[] = [
-				{
-					label: this.$t("loadManagement.card.mode"),
-					value: this.$te(`main.mode.${lp.mode}`) ? this.$t(`main.mode.${lp.mode}`) : lp.mode,
-				},
-				{
-					label: this.$t("loadManagement.card.measured"),
-					value: `${this.fmtNumber(lp.measuredA, 1)} A`,
-					title: this.$t(`loadManagement.card.src.${lp.measuredSrc}`),
-				},
-			];
-			if (lp.soc > 0) {
-				res.push({
-					label: this.$t("loadManagement.card.charge"),
-					value: lp.limitSoc
-						? `${Math.round(lp.soc)} → ${lp.limitSoc} %`
-						: `${Math.round(lp.soc)} %`,
-				});
-			}
-			return res;
+			return `${this.lp.paused || this.state.blind > 0 ? 0 : this.lp.setpointA} A`;
 		},
 	},
 });
@@ -184,16 +269,17 @@ export default defineComponent({
 <style scoped>
 .lp-card {
 	background: var(--evcc-box);
-	border-radius: 2rem;
+	border-radius: 1rem;
 	padding: 1.25rem 1.5rem;
 	display: flex;
 	flex-direction: column;
 	gap: 1rem;
-	border: 2px solid transparent;
+	border: 1px solid var(--bs-border-color-translucent);
 	transition:
 		box-shadow var(--evcc-transition-fast),
 		border-color var(--evcc-transition-fast);
 }
+
 .lp-card--lifted {
 	border-color: var(--evcc-dark-green);
 	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
@@ -202,13 +288,18 @@ export default defineComponent({
 }
 .head {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 0.75rem;
 }
 .grip {
+	min-width: 2.25rem;
+	min-height: 2.75rem;
+	justify-content: center;
+	align-items: center;
 	border: 0;
 	background: none;
-	color: var(--evcc-gray);
+	color: var(--evcc-default-text);
+	opacity: 0.75;
 	padding: 0.5rem 0.25rem;
 	margin-left: -0.5rem;
 	cursor: grab;
@@ -222,36 +313,12 @@ export default defineComponent({
 .grip:focus-visible {
 	outline: var(--bs-focus-ring-width) solid var(--bs-focus-ring-color);
 }
-.prio {
-	flex-shrink: 0;
-	width: 2.75rem;
-	height: 2.75rem;
-	border-radius: 12px;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	justify-content: center;
-	line-height: 1.05;
-	font-weight: 800;
-	font-size: 1.05rem;
-	font-variant-numeric: tabular-nums;
-	background: var(--evcc-gray-15);
-	color: var(--evcc-default-text);
-}
-.prio small {
-	font-size: 0.55rem;
-	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	opacity: 0.75;
-}
-.prio--first {
-	background: var(--evcc-dark-green);
-	color: var(--bs-dark);
-}
 .who {
 	flex-grow: 1;
 	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 0.15rem;
 }
 .title {
 	margin: 0;
@@ -279,16 +346,55 @@ export default defineComponent({
 	font-size: 0.85rem;
 	color: var(--evcc-gray);
 }
+.place-row .sub {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.place-row .first {
+	flex-shrink: 0;
+}
+/* phones: the place text stays whole, the pill goes under it */
+@media (max-width: 419px) {
+	.place-row {
+		flex-wrap: wrap;
+	}
+	.place-row .sub {
+		white-space: normal;
+	}
+}
+.sub::first-letter {
+	text-transform: uppercase;
+}
+.sub--strong {
+	color: var(--evcc-default-text);
+	font-weight: 600;
+}
+.place-row {
+	display: flex;
+	flex-wrap: nowrap;
+	min-width: 0;
+	align-items: center;
+	gap: 0.25rem 0.6rem;
+}
+.first {
+	display: inline-flex;
+	align-items: center;
+	gap: 0.3rem;
+	padding: 0.1rem 0.7rem;
+	min-height: 1.9rem;
+	white-space: nowrap;
+}
 .allowed {
 	text-align: end;
 	flex-shrink: 0;
 }
 .label {
-	font-size: 0.7rem;
-	font-weight: 700;
-	letter-spacing: 0.08em;
 	text-transform: uppercase;
 	color: var(--evcc-gray);
+	font-size: 14px;
+	font-weight: normal;
 }
 .amps {
 	font-size: 1.6rem;
@@ -296,49 +402,83 @@ export default defineComponent({
 	line-height: 1.1;
 	font-variant-numeric: tabular-nums;
 }
-.facts {
-	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
-	gap: 0.75rem;
-}
-.value {
-	font-weight: 700;
-	font-variant-numeric: tabular-nums;
-}
 .foot {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
 	flex-wrap: wrap;
+	row-gap: 0.75rem;
+	align-items: flex-start;
+	justify-content: space-between;
 	gap: 0.75rem;
 	padding-top: 0.85rem;
 	border-top: 1px solid var(--evcc-gray-25);
 }
-.arrows {
-	display: flex;
-	gap: 0.5rem;
-}
-.arrow {
-	width: 2.5rem;
-	height: 2.5rem;
-	border-radius: 10px;
+.stepper {
+	display: inline-flex;
+	align-items: center;
 	border: 1px solid var(--evcc-gray-25);
+	border-radius: var(--bs-border-radius);
+	overflow: hidden;
+	flex-shrink: 0;
+}
+.foot-actions :deep(.sc-wrap--stacked) {
+	align-items: flex-start;
+}
+.foot-actions {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: 0.5rem;
+	min-width: 0;
+	margin-right: auto;
+}
+.prio {
+	margin-left: auto;
+	display: inline-flex;
+	flex-direction: column;
+	align-items: flex-end;
+	gap: 0.2rem;
+	flex-shrink: 0;
+}
+.stepper-label {
+	text-transform: uppercase;
+	color: var(--evcc-gray);
+	font-size: 14px;
+	line-height: 1;
+}
+.stepper button {
+	width: 2.25rem;
+	height: 2.5rem;
+	border: 0;
 	background: transparent;
 	color: var(--evcc-default-text);
 	display: flex;
 	align-items: center;
 	justify-content: center;
 }
-.arrow:hover:not(:disabled) {
+.stepper button:hover:not(:disabled) {
 	background: var(--evcc-gray-15);
 }
-.arrow:disabled {
+.stepper button:disabled {
 	opacity: 0.3;
+}
+.stepper button:focus-visible {
+	outline: var(--bs-focus-ring-width) solid var(--bs-focus-ring-color);
+	outline-offset: -2px;
+}
+.stepper-value {
+	min-width: 2rem;
+	line-height: 2.5rem !important;
+	text-align: center;
+	font-weight: 700;
+	font-variant-numeric: tabular-nums;
+	line-height: 2.25rem;
+	border-left: 1px solid var(--evcc-gray-25);
+	border-right: 1px solid var(--evcc-gray-25);
 }
 @media (max-width: 575px) {
 	.lp-card {
 		padding: 1rem 1.1rem;
-		border-radius: 1.5rem;
+		border-radius: 1rem;
 	}
 	.head {
 		gap: 0.5rem;
@@ -349,14 +489,35 @@ export default defineComponent({
 	.amps {
 		font-size: 1.35rem;
 	}
-	.arrow {
+	.stepper button {
 		width: 2.75rem;
 		height: 2.75rem;
+	}
+
+	.stepper-value {
+		line-height: 2.75rem;
 	}
 }
 @media (prefers-reduced-motion: reduce) {
 	.lp-card {
 		transition: none;
+	}
+}
+.warn-text {
+	color: #9a5200;
+}
+html.dark .warn-text {
+	color: var(--evcc-orange);
+}
+/* phones: the pill column gives way, the stepper keeps its place on every card */
+@media (max-width: 575px) {
+	.foot {
+		flex-wrap: nowrap;
+		column-gap: 0.5rem;
+	}
+	.foot-actions {
+		flex: 1 1 auto;
+		min-width: 0;
 	}
 }
 </style>
