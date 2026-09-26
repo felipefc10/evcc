@@ -5,7 +5,7 @@
 			<HemsWarning :status="hems?.status" />
 			<Energyflow v-if="!setupRequired && !hasFatalError" v-bind="energyflow" />
 			<LoadHomeLine
-				v-if="!setupRequired && !hasFatalError && supercharging?.enabled"
+				v-if="!setupRequired && !hasFatalError && supercharging"
 				:state="supercharging"
 			/>
 		</div>
@@ -67,7 +67,7 @@
 				@id-changed="selectedLoadpointChanged"
 				@open-supercharge="openSupercharge"
 			/>
-			<SuperchargeModal ref="superchargeModal" />
+			<SuperchargeModal ref="superchargeModal" :load-state="supercharging" />
 		</div>
 	</div>
 </template>
@@ -212,13 +212,15 @@ export default defineComponent({
 		},
 	},
 	methods: {
-		openSupercharge(e: { index: number; title: string; active: boolean; until: string | null }) {
-			(this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal> | undefined)?.open(
-				e.index,
-				e.title,
-				e.active,
-				e.until
-			);
+		openSupercharge(e: {
+			index: number;
+			title: string;
+			active: boolean;
+			until: string | null;
+		}) {
+			(
+				this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal> | undefined
+			)?.open(e.index, e.title, e.active, e.until);
 		},
 		selectedLoadpointChanged(id: string | undefined) {
 			this.$router.push({ query: { lp: id } });

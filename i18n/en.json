@@ -447,7 +447,7 @@
         "charging": "Charger",
         "heating": "Heating device"
       },
-      "chargingTitle": "Behaviour",
+      "chargingTitle": "Behavior",
       "circuitHelp": "Load management assignment to ensure power and current limits are not exceeded.",
       "circuitInvalid": "Circuit does not exist",
       "circuitLabel": "Circuit",
@@ -493,7 +493,7 @@
       "phases1p": "1-phase",
       "phases3p": "3-phase",
       "phasesAutomatic": "Automatic phases",
-      "phasesAutomaticHelp": "Your charger supports automatic switching between 1- and 3-phase charging. In the main screen you can adjust phase behaviour while charging.",
+      "phasesAutomaticHelp": "Your charger supports automatic switching between 1- and 3-phase charging. In the main screen you can adjust phase behavior while charging.",
       "phasesHelp": "Number of phases connected.",
       "phasesLabel": "Phases",
       "pollIntervalDanger": "Regularly querying the vehicle may drain the vehicle battery. Some vehicle manufacturers may actively prevent charging in this case. Not recommended! Only use this if you're aware of the risks.",
@@ -505,7 +505,7 @@
       "pollModeChargingHelp": "Only request vehicle status updates when charging.",
       "pollModeConnected": "connected",
       "pollModeConnectedHelp": "Update vehicle status in regular intervals when connected.",
-      "pollModeLabel": "Update behaviour",
+      "pollModeLabel": "Update behavior",
       "priorityHelp": "Higher priority get preferred access to solar surplus.",
       "priorityLabel": "Priority",
       "save": "Save",
@@ -1293,7 +1293,7 @@
   "loadManagement": {
     "title": "Load management",
     "loading": "Waiting for load management data…",
-    "houseLoad": "House load",
+    "houseLoad": "Total load",
     "cancel": "Cancel",
     "tabs": {
       "overview": "Now",
@@ -1305,39 +1305,47 @@
       "off": "Off",
       "standby": "Standby",
       "blind": "Meter blind",
-      "burst": "Supercharging",
-      "base": "Balancing"
+      "burst": "Bursting",
+      "base": "Under the line",
+      "attention": "Needs attention",
+      "over": "Over the line",
+      "supercharge": "Supercharging"
     },
     "status": {
       "off": "Load management is off. Nothing holds the house under the never-trip line.",
       "notConfigured": "No meter configured. Set the meter address under Settings.",
       "standby": "Nothing is charging. Balancing starts by itself as soon as a car wants to charge.",
       "starting": "Starting, the first meter reading decides what the cars may have.",
-      "burst": "Above the {line} never-trip line, up to {target}, for as long as the burst budget lasts.",
+      "burst": "Bursting: allowed up to {target} while the breaker budget lasts.",
       "noCar": "No car is drawing, so the house has the whole {line} to itself.",
-      "charging": "{name} at {amps} A",
+      "charging": "{name} may draw {amps} A",
       "stillDrawing": "{name} still drawing {amps} A, asked to stop",
-      "waiting": "{name} waiting (not enough power at its priority)",
-      "under": "Under the {line} line, no trip risk.",
-      "over": "Over the {line} line by {kva} kVA, bringing it back down."
+      "waiting": "{name} waits for power",
+      "over": "Over the line by {kva} kVA, bringing it back down.",
+      "waitingMany": "{names} wait for power",
+      "waitingFor": "{name} waits for {first}",
+      "overSupercharge": "Over the line by {kva} kVA for the supercharge, within the breaker budget."
     },
     "ledger": {
-      "line": "{kva} kVA never-trip line",
-      "burst": "{kva} kVA burst target",
-      "house": "House",
+      "line": "{kva} kVA never-trip line",
+      "burst": "{kva} kVA burst target",
+      "house": "Rest of house",
       "free": "Free",
       "over": "Over the line by",
       "noReading": "No meter reading yet. The bar fills as soon as the meter answers.",
-      "overclaim": "The car sensors claim {kva} kVA more than the meter measures. The meter is master, so the cars are scaled to fit.",
-      "ofLine": "/ {kva} kVA"
+      "overclaim": "The car sensors claim {kva} kVA more than the meter measures. The meter is master, so the cars are scaled to fit.",
+      "ofLine": "/ {kva} kVA",
+      "lineTitle": "Never-trip line"
     },
     "patience": {
-      "title": "Meter patience used",
+      "title": "Breaker budget",
       "clear": "0 % · counter clear",
       "banked": "{pct} % · {s} s banked",
       "burstsStop": "bursts stop at {pct} %",
       "opens": "100 % · breaker opens",
-      "opensAt": "the breaker opens at 100 %"
+      "opensAt": "the breaker opens at 100 %",
+      "explain": "used now · trips at 100 %",
+      "tick": "The mark is where this burst ends."
     },
     "supercharge": {
       "label": "Supercharge",
@@ -1347,40 +1355,77 @@
       "onForever": "{name} indefinitely",
       "stoodDown": "Supercharging stood itself down ({reason}). Turn it off and on again to retry.",
       "until": "until {time}",
-      "hours": "+{h} h",
+      "hours": "+{h} hour | +{h} hours",
       "indefinitely": "Indefinitely",
       "indefinitelyShort": "indefinitely",
-      "changeTime": "Change when supercharging stops",
+      "changeTime": "Change the end, or stop it",
       "modalTitle": "Supercharge {name}",
-      "modalDescription": "Short bursts above the never-trip line, sized from the meter's trip curve. Balancing carries on afterwards. Until when?",
+      "modalDescription": "Charges faster in short bursts above the never-trip line, until the stop time.",
       "day": "Day",
       "time": "Time",
       "today": "Today",
       "tomorrow": "Tomorrow",
-      "summaryUntil": "Supercharging turns off {time}.",
-      "summaryForever": "Supercharging stays on until you turn it off.",
-      "inPast": "That time has already passed.",
+      "summaryUntil": "Stops {time}, in {duration}.",
+      "summaryForever": "Stays on until you stop it.",
+      "inPast": "That time has already passed. Pick a later time.",
       "save": "Supercharge",
       "turnOff": "Turn off",
-      "custom": "Pick time",
       "noEnd": "No end",
       "untilMorning": "Until {time}",
-      "start": "Start",
-      "apply": "Save"
+      "start": "Start supercharge",
+      "apply": "Save",
+      "quickPicks": "Quick picks",
+      "hour": "Hour",
+      "minute": "Minute",
+      "needsOn": "Supercharge needs load management on",
+      "noEndSwitch": "No end",
+      "paused": "Supercharge paused",
+      "pillNoEnd": "Supercharge, no end",
+      "pillUntil": "Supercharge until {time}",
+      "stopAt": "Until",
+      "stopNow": "Stop supercharge",
+      "tomorrowAt": "Tomorrow {time}",
+      "todayLower": "today",
+      "tomorrowLower": "tomorrow",
+      "untilShort": "Until {time}",
+      "activeTitle": "{name} is supercharging",
+      "activeDescription": "Pick a new end, or turn it off now.",
+      "active": "Supercharging",
+      "noEndLower": "stays on",
+      "todayAt": "Today {time}",
+      "activeNoEnd": "Currently has no end.",
+      "ahead": "{first} is ahead in the charging order, so {name} may wait.",
+      "pausedTitle": "Supercharge paused for {name}",
+      "daysHours": "{d} day {h} h | {d} days {h} h",
+      "activeWas": "Currently stops {time}.",
+      "nowFirst": "{name} now charges first.",
+      "movedEarliest": "Moved to the earliest time.",
+      "picksFromNow": "Quick picks count from now.",
+      "aheadSupercharge": "{first} is ahead and supercharging. Charge first pauses that supercharge while {name} charges.",
+      "nowFirstPaused": "{name} now charges first. {other}'s supercharge waits meanwhile."
     },
     "reason": {
       "notConnected": "Not plugged in",
       "stoodOff": "Offered current and taking none, standing down for {time}. Its share goes to the other car. Usually the car's own charge limit.",
-      "notWanted": "Not charging (mode, limit or plan)",
+      "notWanted": "Not charging right now",
       "disabled": "Load management is off",
       "standby": "Load management starts with the first charge",
       "pausedDrawing": "Paused, but still drawing {amps} A, asking it to stop again",
-      "paused": "Paused, not enough power at its priority",
+      "paused": "Waiting for power",
       "comingUp": "Coming up to its share",
-      "measured": "{amps} A measured",
+      "measured": "{amps} A measured",
       "sensorSays": "(sensor says {amps})",
       "done": "done about {time} (in {duration})",
-      "nextChange": "next change in {s} s"
+      "nextChange": "next change in {s} s",
+      "bursting": "Bursting above the line",
+      "modeOff": "Mode is Off",
+      "atLimit": "Reached its {soc} % limit",
+      "scStoodDown": "Supercharge stood down: {reason}",
+      "scTooWarm": "Supercharge waits: charger too warm",
+      "scNoRoom": "Supercharge waits: no room for a burst right now",
+      "scRecovering": "Supercharge on, between bursts",
+      "firstOther": "{name} charges first",
+      "noRoom": "No room under the line"
     },
     "row": {
       "title": "Load management",
@@ -1388,26 +1433,10 @@
     },
     "card": {
       "allowed": "Allowed",
-      "paused": "Paused",
-      "shares": "Shares equally",
-      "order": "Charges #{n}",
-      "priority": "Priority",
-      "priorityDown": "Lower priority",
-      "priorityUp": "Higher priority",
       "slowNote": "This charger reacts slowly, so its bursts end earlier and gain less.",
-      "car": "Car",
-      "charge": "Charge",
-      "toGo": "To go",
-      "average": "Average",
-      "mode": "Mode",
-      "range": "Range",
-      "measured": "Measured",
-      "pauses": "Pauses",
-      "src": {
-        "charger": "read live from the charger",
-        "mqtt": "from its MQTT feed",
-        "evcc": "from the loadpoint's last cycle"
-      }
+      "whyBlind": "Held back, meter not answering",
+      "whyBursting": "Bursting above the line",
+      "upTo": "up to {a} A"
     },
     "stats": {
       "budget": "Current to share",
@@ -1419,57 +1448,62 @@
       "house": "House without the cars",
       "ofLine": "{pct} % of the line",
       "houseHelp": "Meter reading minus what the cars draw.",
-      "average": "Session average",
-      "vsLine": "{pct} % vs. the line",
+      "average": "Average",
       "averageHelp": "Average apparent power since balancing started.",
       "bursts": "Bursts",
       "lastChanges": "last used {n} current changes",
       "burstsHelp": "Bursts this session. A clean burst costs two current changes.",
       "pauses": "Contactor operations",
-      "pausesHelp": "Pauses this session. Each one is a mechanical operation on the charger.",
+      "pausesHelp": "Times a car was paused this session. Each pause switches a contactor in the charger.",
       "commands": "Current commands",
       "commandsHelp": "Current changes sent this session.",
       "window": "Burst window",
-      "windowHelp": "How long one burst may run at the target and still survive a household step."
+      "windowHelp": "How long one burst may run at the target and still survive a household step.",
+      "history": "this session · history",
+      "thisSession": "this session ·",
+      "historyLink": "history",
+      "aboveLine": "{pct} % above the line",
+      "belowLine": "{pct} % under the line",
+      "atLine": "at the line"
     },
     "settings": {
       "general": "Installation",
       "enabled": "Whole-house load management",
-      "enabledHelp": "Holds the house under the never-trip line and shares the power by loadpoint priority. Off means nothing does.",
+      "enabledHelp": "Keeps the house under the never-trip line and shares power by charging order. When off, every loadpoint is capped instead.",
       "meterUri": "Meter address",
       "meterUriHelp": "Shelly EM channel, e.g. http://192.168.1.10/emeter/0. Read directly once a second while balancing.",
       "saved": "Saved",
       "clamped": "Limited to {value}",
       "normalised": "Saved as {value}",
       "loadpoints": "Loadpoints",
-      "loadpointsHelp": "How each charger is measured. Priorities, currents and modes are the loadpoint's own settings.",
+      "loadpointsHelp": "How each charger is measured. Current and mode are set on the loadpoint itself, the charging order on the",
       "fast": "Fast charger",
-      "fastHelp": "The charger reacts within about a second and its current can be read every second (e.g. over MQTT).",
-      "measureTopic": "Current feed (MQTT)",
+      "fastHelp": "Turn on for chargers that react within a second and report their current every second. Their bursts can run longer.",
+      "measureTopic": "Current feed",
       "measureTopicHelp": "Optional topic publishing this car's current, e.g. teslamate/cars/1/charger_actual_current.",
       "measureUnit": "Unit",
-      "tempTopic": "Charger temperature (MQTT)",
+      "tempTopic": "Charger temperature (°C)",
       "tempTopicHelp": "Optional topic publishing the charger temperature in °C. Bursting stops above the limit.",
-      "maxTopic": "Car maximum (MQTT)",
+      "maxTopic": "Car maximum (A)",
       "maxTopicHelp": "Optional topic publishing the most current the car accepts right now, e.g. teslamate/cars/1/charge_current_request_max. Nothing is planned above it.",
       "tiles": {
         "expected": "Expected average power",
         "gain": "vs. never-trip line",
         "window": "Burst window",
-        "budget": "Closeness budget per burst"
+        "budget": "Budget per burst"
       },
       "groups": {
         "burst": {
-          "title": "Supercharging",
-          "subtitle": "How big a burst is and what it must survive"
+          "title": "Burst size",
+          "subtitle": "How big a burst is and how much room it keeps"
         },
         "control": {
-          "title": "Control",
-          "subtitle": "When a burst gives up and how fast the loop corrects"
+          "title": "Pacing and currents",
+          "subtitle": "How fast current changes, and the current limits"
         },
         "thrift": {
-          "title": "Contactor thrift and backstops",
-          "subtitle": "Riding out dips, and what happens when the meter goes quiet"
+          "title": "Pauses and safety",
+          "subtitle": "Riding out dips, breaker-budget limits, and what happens when the meter stops answering"
         }
       },
       "fields": {
@@ -1482,12 +1516,12 @@
           "help": "Contracted apparent power of the supply."
         },
         "k": {
-          "label": "Never-trip factor k",
-          "help": "The meter never trips at or below k × contracted power (1.2 by default)."
+          "label": "Never-trip factor",
+          "help": "The meter never trips at or below this multiple of the contracted power."
         },
         "q": {
-          "label": "Trip curve Q",
-          "help": "Trip delay constant of the meter curve Tdisp = Q / (S/SC − k)."
+          "label": "Overload tolerance",
+          "help": "The meter's trip-time constant: 10 % of the contract above the line trips after 10 × this many seconds (50 gives 500 s). Higher tolerates longer."
         },
         "burstKva": {
           "label": "Burst target",
@@ -1495,35 +1529,35 @@
         },
         "bumpKva": {
           "label": "Household load margin",
-          "help": "A sudden household step a burst must survive at its worst moment."
+          "help": "A sudden household load a burst must be able to absorb."
         },
         "marginS": {
           "label": "Reaction margin",
-          "help": "Seconds left to react after that step. Lower means longer bursts and less margin."
+          "help": "Time left to react after such a load. Lower gives longer bursts and less room."
         },
         "resetS": {
-          "label": "Cool-down hold",
+          "label": "Rest between bursts",
           "help": "How long the house must be under the line before the next burst."
         },
         "baseMarginKva": {
-          "label": "Baseline safety margin",
+          "label": "Balancing margin",
           "help": "How far under the never-trip line balancing aims."
         },
         "exitLeadFrac": {
-          "label": "Exit lead",
-          "help": "Fraction of the ramp-down time the burst exit is brought forward by."
+          "label": "End bursts early by",
+          "help": "Share of the ramp-down time a burst starts stepping back early."
         },
         "maxTempC": {
           "label": "No bursts above",
           "help": "Charger temperature above which bursting pauses. Balancing continues."
         },
         "maxCloseness": {
-          "label": "Abort at closeness",
-          "help": "Hard abort of a burst when this share of the meter's patience is spent."
+          "label": "Abort a burst at",
+          "help": "Breaker budget used that ends a burst at once."
         },
         "trimMaxA": {
-          "label": "Delivery trim limit",
-          "help": "Largest correction the delivery trim may apply. 0 disables it."
+          "label": "Correction limit",
+          "help": "Largest correction for cars that settle under or over their setpoint. 0 turns it off."
         },
         "ampMin": {
           "label": "Fallback minimum current",
@@ -1534,47 +1568,47 @@
           "help": "Used only when a loadpoint reports no maximum."
         },
         "raiseTable": {
-          "label": "Raise cadence",
-          "help": "amps:seconds rows, how long a raise must be owed before it is sent."
+          "label": "Raise pacing",
+          "help": "How long a raise of at least this many amps waits before it is sent."
         },
         "reduceTable": {
-          "label": "Reduce cadence",
-          "help": "amps:seconds rows for reductions. Emergencies never wait."
+          "label": "Reduce pacing",
+          "help": "The same for reductions. Emergencies never wait."
         },
         "floorDwellS": {
-          "label": "Hold at the minimum for",
-          "help": "A dip under a car's minimum is ridden out this long before pausing it."
+          "label": "Ride out a dip for",
+          "help": "Time below a car's minimum before it is paused."
         },
         "restartDwellS": {
           "label": "Wait before resuming",
           "help": "After a pause, wait at least this long before resuming the car."
         },
         "baseAbortCloseness": {
-          "label": "Shed at closeness",
-          "help": "In balancing, every car is sent to its minimum at this closeness."
+          "label": "Send cars to minimum at",
+          "help": "Share of the breaker budget used outside bursts at which every car drops to its minimum."
         },
         "baseStopCloseness": {
-          "label": "Stop at closeness",
-          "help": "In balancing, every car is stopped at this closeness."
+          "label": "Stop every car at",
+          "help": "Share of the breaker budget used outside bursts at which every car stops."
         },
         "baseTiAbortS": {
-          "label": "Banked seconds before shedding",
-          "help": "Seconds over the line in balancing before every car goes to its minimum."
+          "label": "Time over the line before minimum",
+          "help": "While balancing, every car goes to its minimum after this long over the line."
         },
         "baseTiStopS": {
-          "label": "Banked seconds before stopping",
-          "help": "Seconds over the line in balancing before every car is stopped."
+          "label": "Time over the line before stopping",
+          "help": "While balancing, every car stops after this long over the line."
         },
         "blindHoldPolls": {
-          "label": "Blind reads before holding",
-          "help": "Missed meter reads before the cars are held at their minimum."
+          "label": "Hold cars after missed readings",
+          "help": "Missed meter readings before the cars are held at their minimum."
         },
         "blindPolls": {
-          "label": "Blind reads before stopping",
-          "help": "Missed meter reads before the blind action applies."
+          "label": "Act after missed readings",
+          "help": "Missed meter readings before the action below applies."
         },
         "blindAction": {
-          "label": "When the meter stays blind",
+          "label": "When the meter stays silent",
           "help": "Stop every car, or keep one charging at a fixed current.",
           "options": {
             "stop": "Stop charging",
@@ -1582,54 +1616,100 @@
           }
         },
         "blindHoldA": {
-          "label": "Current to hold when blind",
-          "help": "Current the one car kept charging gets while the meter is blind."
+          "label": "Current for the car kept charging",
+          "help": "Used only when \"When the meter stays silent\" is set to hold a fixed current."
         }
       },
       "locked": "Viewing only. Log in as admin to change these settings.",
       "login": "Log in",
       "onThisPage": "On this page",
-      "instant": "Every change applies within a second. No restart, no save button."
+      "instant": "Every change applies within a second. No restart, no save button.",
+      "default": "Default {value}.",
+      "range": "Range {min} to {max}{unit}.",
+      "resetTo": "Reset to {value}",
+      "feedAge": "Last value {s} s ago",
+      "feedNone": "No value received yet",
+      "line": "Never-trip line",
+      "lineHelp": "Contracted power times the never-trip factor. Balancing stays under it; bursts go above it briefly.",
+      "lineConfirm": "This moves the never-trip line to {kva} kVA (now {now} kVA). Only apply it if your contract changed.",
+      "lineApply": "Apply {kva} kVA",
+      "lineUndo": "Keep {kva} kVA",
+      "orderLink": "Now tab.",
+      "pacing": {
+        "add": "Add a row",
+        "amps": "At least",
+        "seconds": "Waits",
+        "ampsRow": "Row {n}, amps",
+        "secondsRow": "Row {n}, seconds",
+        "remove": "Remove",
+        "removeRow": "Remove row {n}",
+        "reset": "Reset to {v}",
+        "undo": "Undo",
+        "resetDefault": "Reset to default",
+        "invalid": "Amps must be above 0 and seconds 0 or more.",
+        "draft": "New row: saved once both boxes hold a value."
+      },
+      "example": "e.g. {v}",
+      "offConfirm": "Turn off load management? Each loadpoint is then capped at {a} A and bursts stop.",
+      "offKeep": "Keep on",
+      "offApply": "Turn off",
+      "outOfRange": "{value} is outside {min} to {max}{unit}. Kept {kept}.",
+      "measureTopicShort": "Optional MQTT topic with this car's current, e.g. from TeslaMate.",
+      "maxTopicShort": "Optional topic with the most current the car accepts now.",
+      "tempTopicShort": "Optional topic with the charger temperature in °C.",
+      "notSet": "Not set",
+      "unitReadings": "readings",
+      "fastOf": "{name} fast charger",
+      "undoWas": "Undo (was {value})"
     },
     "bursts": {
       "title": "Burst history",
       "count": "{n} bursts",
       "refresh": "Refresh",
-      "none": "No bursts yet.",
+      "none": "No bursts yet",
       "at": "Time",
       "loadpoint": "Loadpoint",
       "lasted": "Lasted",
       "peak": "Peak",
-      "closeness": "Closeness",
-      "changes": "Changes",
-      "exit": "Ended by",
-      "help": "A clean burst costs two current changes and ends on its deadline. Anything else deserves a look.",
+      "closeness": "Breaker budget",
+      "exit": "Outcome",
       "exits": {
         "deadline": {
-          "label": "Deadline",
+          "label": "Ran as planned",
           "help": "It spent its planned budget and stepped back down. Nothing went wrong."
         },
         "bump_margin": {
-          "label": "Bump margin",
+          "label": "House load rose",
           "help": "Measured power came in above what the burst was sized for."
         },
         "closeness": {
-          "label": "Closeness abort",
-          "help": "Hard abort: closeness passed the ceiling."
+          "label": "Budget limit",
+          "help": "Hard abort: the breaker budget passed its limit."
         },
         "meter_blind": {
-          "label": "Meter blind",
+          "label": "Meter silent",
           "help": "The meter stopped answering."
         },
         "no_draw": {
-          "label": "No draw",
+          "label": "Car took no current",
           "help": "The car never took the current."
         },
         "icp_alarm": {
-          "label": "ICP alarm",
+          "label": "Breaker alarm",
           "help": "An independent alarm said so."
         }
-      }
+      },
+      "noneHelp": "Turn on Supercharge for a car on the main screen or the Now tab. Each burst shows up here with how it ended.",
+      "older": "Show older",
+      "showing": "Showing {n} of {total}",
+      "newOnes": "{n} new burst, show | {n} new bursts, show",
+      "chipCount": "burst | bursts",
+      "chipAverage": "on average",
+      "chipPeak": "peak breaker budget",
+      "chipEarly": "ended early",
+      "showingEarly": "Showing {n} of {total} ended early",
+      "stackLine": "{s} · {kva} peak · {pct} budget",
+      "showingKept": "Showing {n} of {total}. Only the last {total} bursts are kept."
     },
     "diagnostics": {
       "selftest": "Self-test",
@@ -1637,7 +1717,7 @@
       "download": "Download diagnostics",
       "notRun": "The self-test runs by itself shortly after start.",
       "failed": "{n} failed · {when}",
-      "passed": "passed · {when}",
+      "passed": "Passed · {when}",
       "sensors": "Sensors",
       "sensorsHelp": "The meter is master. Car readings are claims about part of it and are scaled back when they add up to more.",
       "meter": "Meter",
@@ -1647,27 +1727,53 @@
       "latency": "Meter latency",
       "floor": "House floor",
       "floorHelp": "The least the house is assumed to draw, learned from idle readings.",
-      "claim": "Cars claimed / credited",
+      "claim": "Car readings used",
       "claimHelp": "What the car sensors claimed against what the meter allowed.",
       "disagreements": "Meter disagreements",
       "sourceOhm": "Supply resistance",
       "sourceOhmHelp": "Learned from bursts: how much the voltage sags under load.",
       "voltsAtGoal": "Voltage at burst target",
       "temp": "Charger temperature",
-      "peak": "Worst closeness",
+      "peak": "Most breaker budget used, this session",
       "peakBlind": "Reached while the meter was blind, so it is an assumption, not a measurement.",
-      "learned": "Learned behaviour",
-      "learnedHelp": "Measured per charger and car, deliberately pessimistic. Nothing is used before four observations.",
+      "learned": "Learned behavior",
+      "learnedHelp": "Measured per charger and car, deliberately pessimistic. The number in brackets is how often it was observed; nothing is used before four observations.",
       "nothingLearned": "Nothing learned yet.",
       "pair": "Charger · car",
       "rampDown": "Ramp down",
       "latencyDown": "Shed latency",
       "latencyUp": "Raise latency",
-      "entryOffset": "Entry offset"
+      "entryOffset": "Entry offset",
+      "control": "Control",
+      "polling": "Meter polling",
+      "pollModes": {
+        "standby": "Standby",
+        "active": "Every second",
+        "idle": "Idle"
+      },
+      "handedOut": "Handed out",
+      "writes": "Current changes",
+      "blind": "Missed readings",
+      "checkSettings": "Check in Settings",
+      "entryOffsetHelp": "Learned overshoot when a burst starts.",
+      "blindHelp": "Meter readings missed in a row right now. The cars are held back after the number set under Pauses and safety.",
+      "passedCount": "{n} check passed | {n} checks passed",
+      "attentionCount": "{n} checks need attention",
+      "support": "Details for support",
+      "supportHelp": "What load management measures and has learned. Useful when something looks wrong.",
+      "writesValue": "{n} ({h} per hour)",
+      "unknownCar": "unknown car",
+      "ranNow": "checked just now",
+      "notesCount": "{n} note | {n} notes",
+      "rampUp": "Ramp up",
+      "handedOutHelp": "Can exceed the share while a car bursts.",
+      "disagreementsHelp": "Readings where the cars claimed more than the meter measured. The meter wins.",
+      "controlHelp": "What the controller decided and did this session.",
+      "entryOffsetNow": "Entry offset in use"
     },
     "order": {
       "title": "Charging order",
-      "hint": "Drag to reorder · highest priority first",
+      "hint": "Drag, or set the priority",
       "share": "Share equally",
       "sharing": "Sharing equally",
       "up": "Move {name} up",
@@ -1675,18 +1781,85 @@
       "drag": "Drag {name} to change the order",
       "prio": "Prio",
       "prioTitle": "Priority {n}",
-      "place1": "charges first",
-      "place2": "charges second",
-      "place3": "charges third",
-      "place4": "charges fourth",
-      "later": "charges later",
-      "shares": "shares equally",
-      "failed": "Could not save the order: {error}"
+      "place1": "First in line",
+      "place2": "Second in line",
+      "place3": "Third in line",
+      "place4": "Fourth in line",
+      "later": "Later in line",
+      "shares": "Shares first place",
+      "failed": "Could not save the order: {error}",
+      "chargeFirst": "Charge first",
+      "chargeFirstHelp": "Moves this car to the top: its priority becomes the highest",
+      "lower": "Lower the priority of {name}",
+      "raise": "Raise the priority of {name}",
+      "priority": "Priority",
+      "priorityOf": "Priority of {name}"
     },
     "home": {
       "line": "{kva} / {line} kVA",
-      "open": "House load {kva} of {line} kVA, {phase}. Open load management"
-    }
+      "open": "Total load {kva} kVA, never-trip line {line} kVA, {phase}. Open load management",
+      "meterTitle": "House load against the {kva} kVA never-trip line",
+      "label": "Total",
+      "lineLong": "never-trip line",
+      "lineShort": "line",
+      "budget": "Breaker budget {pct} % used"
+    },
+    "import": {
+      "title": "Import from the add-on",
+      "subtitle": "Tuning, supercharge settings and learned behavior from the Supercharging add‑on",
+      "already": "Last imported from: {from}.",
+      "files": "Add-on files",
+      "filesHelp": "Choose settings.json, options.json and learn.json from the add-on's data folder. Any of them on its own works too.",
+      "kind": {
+        "settings": "tuning",
+        "options": "installation",
+        "learned": "learned behavior",
+        "unknown": "not an add-on file, ignored | not add-on files, ignored"
+      },
+      "mapTitle": "Loadpoints",
+      "mapHelp": "Match each add-on loadpoint to a loadpoint here.",
+      "skip": "Don't import",
+      "run": "Import",
+      "replaces": "Replaces the current tuning and learned behavior.",
+      "done": "Applied {what}. Load management uses them from now on.",
+      "again": "Import again",
+      "apply": "Apply {what}",
+      "changes": "What changes",
+      "learnedPairs": "Learned behavior for {n} car is replaced. | Learned behavior for {n} cars is replaced.",
+      "noChanges": "No setting differs from what evcc already uses.",
+      "nothing": "{files}: not an add-on file. Choose settings.json, options.json or learn.json.",
+      "other": "Choose other files",
+      "read": "Read {files}.",
+      "runtime": "Turn supercharge back on for {names}, as in the add-on",
+      "same": "{n} other value is the same in both. | {n} other values are the same in both.",
+      "to": "to",
+      "step": {
+        "files": "Files",
+        "review": "Review",
+        "done": "Done"
+      },
+      "stepOf": "Step {n} of {total}: {name}",
+      "choose": "Choose files",
+      "nChanges": "{n} change | {n} changes",
+      "nPairs": "learned behavior for {n} car | learned behavior for {n} cars",
+      "and": "and",
+      "addonLoadpoint": "Add-on loadpoint {n}",
+      "lineMove": "This moves the never-trip line from {from} to {to} kVA.",
+      "lineConfirm": "Move the never-trip line to {to} kVA",
+      "addonNamed": "Add-on loadpoint “{key}”"
+    },
+    "alert": {
+      "offTitle": "Load management is off",
+      "offText": "Nothing keeps the house under the never-trip line. Every loadpoint is capped at {a} A instead.",
+      "offAction": "Turn on in Settings",
+      "blindTitle": "The meter is not answering",
+      "blindText": "Without a reading the cars are held back so the breaker cannot trip. Charging resumes by itself when the meter answers.",
+      "blindAction": "Check the meter",
+      "checkTitle": "{name} needs attention",
+      "checkAction": "Open Diagnostics",
+      "errorTitle": "Last error"
+    },
+    "close": "Close"
   },
   "log": {
     "areaLabel": "Filter by area",

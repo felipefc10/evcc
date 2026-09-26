@@ -98,7 +98,10 @@ export default defineComponent({
 			return this.batteryMode === "hold";
 		},
 		loadManagementActive(): boolean {
-			return !!this.supercharging && (this.supercharging.enabled || this.supercharging.configured);
+			return (
+				!!this.supercharging &&
+				(this.supercharging.enabled || this.supercharging.configured)
+			);
 		},
 		batteryConfigured() {
 			return (this.battery?.devices?.length ?? 0) > 0;

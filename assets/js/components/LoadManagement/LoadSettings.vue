@@ -10,6 +10,8 @@
 				:key="sec.id"
 				type="button"
 				class="index-link"
+				:class="{ active: sec.id === current }"
+				:aria-current="sec.id === current ? 'true' : undefined"
 				@click="scrollTo(sec.id)"
 			>
 				{{ sec.title }}
@@ -18,6 +20,26 @@
 		</aside>
 
 		<div class="settings-main">
+			<p class="instant-note d-lg-none">{{ $t("loadManagement.settings.instant") }}</p>
+			<nav
+				class="index-chips d-lg-none"
+				:class="{ 'index-chips--end': chipsEnd }"
+				@scroll.passive="chipsScrolled"
+				:aria-label="$t('loadManagement.settings.onThisPage')"
+			>
+				<button
+					v-for="sec in sections"
+					:id="`lm-chip-${sec.id}`"
+					:key="sec.id"
+					type="button"
+					class="btn btn-pill index-chip"
+					:class="{ active: sec.id === current }"
+					:aria-current="sec.id === current ? 'true' : undefined"
+					@click="scrollTo(sec.id)"
+				>
+					{{ sec.title }}
+				</button>
+			</nav>
 			<div v-if="locked" class="locked mb-4" role="status" data-testid="load-settings-locked">
 				<svg
 					width="20"
@@ -48,6 +70,7 @@
 					<h2 class="box-title">{{ $t("loadManagement.settings.general") }}</h2>
 					<SettingRow
 						id="lmEnabled"
+						inline
 						:label="$t('loadManagement.settings.enabled')"
 						:help="$t('loadManagement.settings.enabledHelp')"
 						:feedback="feedback['enabled']"
@@ -57,12 +80,31 @@
 								id="lmEnabled"
 								:checked="config.enabled"
 								class="form-check-input switch"
+								:class="{ 'switch--pending': pendingOff }"
 								type="checkbox"
 								role="switch"
 								@change="onEnabled"
 							/>
 						</div>
 					</SettingRow>
+					<div
+						v-if="pendingOff"
+						class="line-confirm mb-3"
+						role="alert"
+						data-testid="load-off-confirm"
+					>
+						<span class="confirm-text">{{
+							$t("loadManagement.settings.offConfirm", { a: config.failsafeA })
+						}}</span>
+						<span class="confirm-actions">
+							<button type="button" class="btn btn-outline-secondary" @click="keepOn">
+								{{ $t("loadManagement.settings.offKeep") }}
+							</button>
+							<button type="button" class="btn btn-danger" @click="turnOff">
+								{{ $t("loadManagement.settings.offApply") }}
+							</button>
+						</span>
+					</div>
 					<SettingRow
 						id="lmMeterUri"
 						wide
@@ -79,84 +121,79 @@
 							@change="onMeterUri"
 						/>
 					</SettingRow>
+					<template v-for="f in lineFields" :key="f.key">
+						<NumberRow
+							:ref="`row-${f.key}`"
+							:field="f"
+							:value="curveValue(f.key)"
+							:feedback="feedback[f.key]"
+							@change="(v: number) => askLine(f.key, v)"
+						/>
+						<div
+							v-if="pendingLine && pendingLine.key === f.key"
+							class="line-confirm mb-3"
+							role="alert"
+							data-testid="load-line-confirm"
+						>
+							<span class="confirm-text">{{ pendingLineText }}</span>
+							<span class="confirm-actions">
+								<button
+									type="button"
+									class="btn btn-outline-secondary"
+									@click="undoLine"
+								>
+									{{ $t("loadManagement.settings.lineUndo", { kva: lineText }) }}
+								</button>
+								<button type="button" class="btn btn-warning" @click="applyLine">
+									{{
+										$t("loadManagement.settings.lineApply", {
+											kva: fmtNumber(pendingLine.line, 2),
+										})
+									}}
+								</button>
+							</span>
+						</div>
+					</template>
+					<SettingRow
+						id="lmLine"
+						:label="$t('loadManagement.settings.line')"
+						:help="$t('loadManagement.settings.lineHelp')"
+						:feedback="feedback['line']"
+					>
+						<div class="input-group">
+							<input
+								id="lmLine"
+								class="form-control text-end fw-bold"
+								type="text"
+								readonly
+								:value="lineText"
+								data-testid="load-line-value"
+							/>
+							<span class="input-group-text unit">kVA</span>
+						</div>
+					</SettingRow>
 					<NumberRow
-						v-for="f in curveFields"
+						v-for="f in otherCurveFields"
 						:key="f.key"
 						:field="f"
-						:value="config[f.key as 'q' | 'k' | 'contractKva' | 'failsafeA']"
+						:value="curveValue(f.key)"
 						:feedback="feedback[f.key]"
 						@change="(v: number) => save({ [f.key]: v }, f.key, v)"
 					/>
 				</section>
 
-				<section
-					v-for="group in groups"
-					:id="sectionId(group.id)"
-					:key="group.id"
-					class="lm-box mb-4"
-				>
-					<h2 class="box-title">
-						{{ $t(`loadManagement.settings.groups.${group.id}.title`) }}
-					</h2>
-					<p class="box-subtitle">
-						{{ $t(`loadManagement.settings.groups.${group.id}.subtitle`) }}
-					</p>
-					<div v-if="group.id === 'burst'" class="tiles mb-3" data-testid="load-tuning-tiles">
-						<div v-for="t in tiles" :key="t.label" class="tile">
-							<div class="tile-value">{{ t.value }}</div>
-							<div class="tile-label">{{ t.label }}</div>
-						</div>
-					</div>
-					<template v-for="f in group.fields" :key="f.key">
-						<SettingRow
-							v-if="f.type === 'select'"
-							:id="`lm-${f.key}`"
-							:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
-							:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
-							:feedback="feedback[f.key]"
-						>
-							<select
-								:id="`lm-${f.key}`"
-								class="form-select"
-								:value="settingValue(f.key)"
-								@change="
-									saveSetting(f.key, ($event.target as HTMLSelectElement).value)
-								"
-							>
-								<option v-for="o in f.options" :key="o" :value="o">
-									{{ $t(`loadManagement.settings.fields.${f.key}.options.${o}`) }}
-								</option>
-							</select>
-						</SettingRow>
-						<SettingRow
-							v-else-if="f.type === 'text'"
-							:id="`lm-${f.key}`"
-							wide
-							:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
-							:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
-							:feedback="feedback[f.key]"
-						>
-							<input
-								:id="`lm-${f.key}`"
-								class="form-control font-monospace"
-								type="text"
-								:value="settingValue(f.key)"
-								@change="saveSetting(f.key, ($event.target as HTMLInputElement).value)"
-							/>
-						</SettingRow>
-						<NumberRow
-							v-else
-							:field="f"
-							:value="Number(settingValue(f.key))"
-							:feedback="feedback[f.key]"
-							@change="(v: number) => saveSetting(f.key, v)"
-						/>
-					</template>
-				</section>
-
 				<section :id="sectionId('chargers')" class="lm-box mb-4">
 					<h2 class="box-title">{{ $t("loadManagement.settings.loadpoints") }}</h2>
-					<p class="box-subtitle">{{ $t("loadManagement.settings.loadpointsHelp") }}</p>
+					<p class="box-subtitle">
+						{{ $t("loadManagement.settings.loadpointsHelp") }}
+						<router-link :to="{ query: {} }">{{
+							$t("loadManagement.settings.orderLink")
+						}}</router-link>
+					</p>
+					<p class="form-text mt-0 mb-3">
+						<strong>{{ $t("loadManagement.settings.fast") }}</strong
+						>{{ ": " }}{{ $t("loadManagement.settings.fastHelp") }}
+					</p>
 					<div
 						v-for="lp in loadpoints"
 						:key="lp.name"
@@ -168,6 +205,9 @@
 							<div class="form-check form-switch m-0">
 								<input
 									:id="`lm-fast-${lp.index}`"
+									:aria-label="
+										$t('loadManagement.settings.fastOf', { name: lp.title })
+									"
 									:checked="lpConfig(lp.name).fast"
 									class="form-check-input"
 									type="checkbox"
@@ -181,7 +221,6 @@
 								<label
 									class="form-check-label fw-bold"
 									:for="`lm-fast-${lp.index}`"
-									:title="$t('loadManagement.settings.fastHelp')"
 								>
 									{{ $t("loadManagement.settings.fast") }}
 								</label>
@@ -189,22 +228,20 @@
 						</div>
 						<div class="feeds">
 							<div>
-								<label
-									class="feed-label"
-									:for="`lm-measure-${lp.index}`"
-									:title="$t('loadManagement.settings.measureTopicHelp')"
-								>
+								<label class="feed-label" :for="`lm-measure-${lp.index}`">
 									{{ $t("loadManagement.settings.measureTopic") }}
 								</label>
 								<div class="input-group">
 									<input
 										:id="`lm-measure-${lp.index}`"
+										:placeholder="$t('loadManagement.settings.notSet')"
 										class="form-control font-monospace"
 										type="text"
 										:value="lpConfig(lp.name).measureTopic"
 										@change="
 											saveLp(lp.name, {
-												measureTopic: ($event.target as HTMLInputElement).value,
+												measureTopic: ($event.target as HTMLInputElement)
+													.value,
 											})
 										"
 									/>
@@ -214,9 +251,8 @@
 										:value="lpConfig(lp.name).measureUnit"
 										@change="
 											saveLp(lp.name, {
-												measureUnit: ($event.target as HTMLSelectElement).value as
-													| 'A'
-													| 'W',
+												measureUnit: ($event.target as HTMLSelectElement)
+													.value as 'A' | 'W',
 											})
 										"
 									>
@@ -224,17 +260,24 @@
 										<option value="W">W</option>
 									</select>
 								</div>
+								<div class="form-text">
+									{{ $t("loadManagement.settings.measureTopicShort") }}
+								</div>
+								<div
+									v-if="feedNote(lp)"
+									class="feed-note"
+									:class="feedNoteClass(lp)"
+								>
+									{{ feedNote(lp) }}
+								</div>
 							</div>
 							<div>
-								<label
-									class="feed-label"
-									:for="`lm-max-${lp.index}`"
-									:title="$t('loadManagement.settings.maxTopicHelp')"
-								>
+								<label class="feed-label" :for="`lm-max-${lp.index}`">
 									{{ $t("loadManagement.settings.maxTopic") }}
 								</label>
 								<input
 									:id="`lm-max-${lp.index}`"
+									:placeholder="$t('loadManagement.settings.notSet')"
 									class="form-control font-monospace"
 									type="text"
 									:value="lpConfig(lp.name).maxTopic"
@@ -244,17 +287,17 @@
 										})
 									"
 								/>
+								<div class="form-text">
+									{{ $t("loadManagement.settings.maxTopicShort") }}
+								</div>
 							</div>
 							<div>
-								<label
-									class="feed-label"
-									:for="`lm-temp-${lp.index}`"
-									:title="$t('loadManagement.settings.tempTopicHelp')"
-								>
+								<label class="feed-label" :for="`lm-temp-${lp.index}`">
 									{{ $t("loadManagement.settings.tempTopic") }}
 								</label>
 								<input
 									:id="`lm-temp-${lp.index}`"
+									:placeholder="$t('loadManagement.settings.notSet')"
 									class="form-control font-monospace"
 									type="text"
 									:value="lpConfig(lp.name).tempTopic"
@@ -264,9 +307,156 @@
 										})
 									"
 								/>
+								<div class="form-text">
+									{{ $t("loadManagement.settings.tempTopicShort") }}
+								</div>
 							</div>
 						</div>
 						<Feedback :msg="feedback[`lp-${lp.name}`]" />
+					</div>
+				</section>
+
+				<section
+					v-for="group in groups"
+					:id="sectionId(group.id)"
+					:key="group.id"
+					class="lm-box mb-4"
+				>
+					<h2 class="box-heading">
+						<button
+							type="button"
+							class="box-toggle"
+							:aria-expanded="!!open[group.id]"
+							:aria-controls="`${sectionId(group.id)}-body`"
+							:data-testid="`load-toggle-${group.id}`"
+							@click="toggle(group.id)"
+						>
+							<span>
+								<span class="box-title">
+									{{ $t(`loadManagement.settings.groups.${group.id}.title`) }}
+								</span>
+								<span class="box-subtitle">
+									{{ $t(`loadManagement.settings.groups.${group.id}.subtitle`) }}
+								</span>
+							</span>
+							<svg
+								class="chevron"
+								:class="{ 'chevron--open': open[group.id] }"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.4"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="m6 9 6 6 6-6" />
+							</svg>
+						</button>
+					</h2>
+					<div v-show="open[group.id]" :id="`${sectionId(group.id)}-body`">
+						<div
+							v-if="group.id === 'burst'"
+							class="tiles mb-3"
+							data-testid="load-tuning-tiles"
+						>
+							<div v-for="t in tiles" :key="t.label" class="tile">
+								<div class="tile-value">{{ t.value }}</div>
+								<div class="tile-label">{{ t.label }}</div>
+							</div>
+						</div>
+						<template v-for="f in group.fields" :key="f.key">
+							<SettingRow
+								v-if="f.type === 'select'"
+								:id="`lm-${f.key}`"
+								:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
+								:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
+								:feedback="feedback[f.key]"
+							>
+								<select
+									:id="`lm-${f.key}`"
+									class="form-select"
+									:value="settingValue(f.key)"
+									@change="
+										saveSetting(
+											f.key,
+											($event.target as HTMLSelectElement).value
+										)
+									"
+								>
+									<option v-for="o in f.options" :key="o" :value="o">
+										{{
+											$t(
+												`loadManagement.settings.fields.${f.key}.options.${o}`
+											)
+										}}
+									</option>
+								</select>
+							</SettingRow>
+							<PacingRow
+								v-else-if="f.type === 'pacing'"
+								:field="f.key"
+								:value="String(settingValue(f.key))"
+								:feedback="feedback[f.key]"
+								@change="(v: string) => saveSetting(f.key, v)"
+							/>
+							<NumberRow
+								v-else
+								:field="f"
+								:disabled="
+									f.key === 'blindHoldA' && settingValue('blindAction') !== 'hold'
+								"
+								:value="Number(settingValue(f.key))"
+								:feedback="feedback[f.key]"
+								@change="(v: number) => saveSetting(f.key, v)"
+							/>
+						</template>
+					</div>
+				</section>
+
+				<section :id="sectionId('import')" class="lm-box mb-4">
+					<h2 class="box-heading">
+						<button
+							type="button"
+							class="box-toggle"
+							:aria-expanded="!!open['import']"
+							:aria-controls="`${sectionId('import')}-body`"
+							data-testid="load-toggle-import"
+							@click="toggle('import')"
+						>
+							<span>
+								<span class="box-title">{{
+									$t("loadManagement.import.title")
+								}}</span>
+								<span class="box-subtitle">{{
+									$t("loadManagement.import.subtitle")
+								}}</span>
+							</span>
+							<svg
+								class="chevron"
+								:class="{ 'chevron--open': open['import'] }"
+								width="20"
+								height="20"
+								viewBox="0 0 24 24"
+								fill="none"
+								stroke="currentColor"
+								stroke-width="2.4"
+								stroke-linecap="round"
+								stroke-linejoin="round"
+								aria-hidden="true"
+							>
+								<path d="m6 9 6 6 6-6" />
+							</svg>
+						</button>
+					</h2>
+					<div v-show="open['import']" :id="`${sectionId('import')}-body`" class="pb-4">
+						<LoadImport
+							:loadpoints="loadpoints"
+							:imported-from="config.importedFrom || ''"
+							:config="config"
+						/>
 					</div>
 				</section>
 			</fieldset>
@@ -280,6 +470,8 @@ import api from "@/api";
 import formatter from "@/mixins/formatter";
 import SettingRow from "./SettingRow.vue";
 import NumberRow, { type NumberField } from "./NumberRow.vue";
+import LoadImport from "./LoadImport.vue";
+import PacingRow from "./PacingRow.vue";
 import type {
 	LoadConfig,
 	LoadLoadpoint,
@@ -289,7 +481,7 @@ import type {
 } from "@/types/supercharge";
 
 interface Field extends NumberField {
-	type?: "select" | "text";
+	type?: "select" | "pacing";
 	options?: string[];
 }
 
@@ -310,7 +502,7 @@ const Feedback = defineComponent({
 // Every setting is applied the moment it is changed: the control loop reads it on its next second.
 export default defineComponent({
 	name: "LoadSettings",
-	components: { SettingRow, NumberRow, Feedback },
+	components: { SettingRow, NumberRow, Feedback, LoadImport, PacingRow },
 	mixins: [formatter],
 	props: {
 		config: { type: Object as PropType<LoadConfig>, required: true },
@@ -322,68 +514,240 @@ export default defineComponent({
 		return {
 			feedback: {} as Record<string, { ok: boolean; text: string } | undefined>,
 			timers: {} as Record<string, ReturnType<typeof setTimeout>>,
+			// tuning sections start folded: the installation and the chargers are what most visits need
+			open: {} as Record<string, boolean>,
+			// a contract or factor change waits for a confirm: it moves the never-trip line
+			pendingLine: null as { key: "contractKva" | "k"; value: number; line: number } | null,
+			pendingOff: false,
+			current: "installation",
+			// the fade hints at more chips; at the end it would only hide the last one
+			chipsEnd: false,
+			spy: null as IntersectionObserver | null,
 		};
 	},
 	computed: {
 		sections(): { id: string; title: string }[] {
 			return [
 				{ id: "installation", title: this.$t("loadManagement.settings.general") },
+				{ id: "chargers", title: this.$t("loadManagement.settings.loadpoints") },
 				...this.groups.map((g) => ({
 					id: g.id,
 					title: this.$t(`loadManagement.settings.groups.${g.id}.title`),
 				})),
-				{ id: "chargers", title: this.$t("loadManagement.settings.loadpoints") },
+				{ id: "import", title: this.$t("loadManagement.import.title") },
 			];
 		},
 		loadpoints(): LoadLoadpoint[] {
 			return this.state.loadpoints || [];
 		},
-		curveFields(): Field[] {
+		lineFields(): Field[] {
 			return [
 				{ key: "contractKva", unit: "kVA", min: 1, max: 20, step: 0.05, digits: 2 },
-				{ key: "k", unit: "×", min: 1, max: 2, step: 0.01, digits: 2 },
-				{ key: "q", unit: "", min: 1, max: 200, step: 1, digits: 0 },
+				{ key: "k", unit: "×", min: 1, max: 2, step: 0.01, digits: 2, def: 1.2 },
+			];
+		},
+		otherCurveFields(): Field[] {
+			return [
+				{ key: "q", unit: "s", min: 1, max: 200, step: 1, digits: 0, def: 50 },
 				{ key: "failsafeA", unit: "A", min: 0, max: 32, step: 1, digits: 0 },
 			];
+		},
+		lineText(): string {
+			return this.fmtNumber(this.config.contractKva * this.config.k, 2);
+		},
+		pendingLineText(): string {
+			if (!this.pendingLine) return "";
+			return this.$t("loadManagement.settings.lineConfirm", {
+				kva: this.fmtNumber(this.pendingLine.line, 2),
+				now: this.lineText,
+			});
 		},
 		groups(): { id: string; fields: Field[] }[] {
 			return [
 				{
 					id: "burst",
 					fields: [
-						{ key: "burstKva", unit: "kVA", min: 4.2, max: 9, step: 0.05, digits: 2 },
-						{ key: "bumpKva", unit: "kVA", min: 1.5, max: 4, step: 0.1, digits: 1 },
-						{ key: "marginS", unit: "s", min: 10, max: 120, step: 1, digits: 0 },
-						{ key: "resetS", unit: "s", min: 0.5, max: 60, step: 0.5, digits: 1 },
-						{ key: "baseMarginKva", unit: "kVA", min: 0, max: 0.5, step: 0.01, digits: 2 },
-						{ key: "exitLeadFrac", unit: "0–1", min: 0, max: 1, step: 0.05, digits: 2 },
-						{ key: "maxTempC", unit: "°C", min: 30, max: 90, step: 1, digits: 0 },
+						{
+							key: "burstKva",
+							unit: "kVA",
+							min: 4.2,
+							max: 9,
+							step: 0.05,
+							digits: 2,
+							def: 6.5,
+						},
+						{
+							key: "bumpKva",
+							unit: "kVA",
+							min: 1.5,
+							max: 4,
+							step: 0.1,
+							digits: 1,
+							def: 2,
+						},
+						{
+							key: "marginS",
+							unit: "s",
+							min: 10,
+							max: 120,
+							step: 1,
+							digits: 0,
+							def: 30,
+						},
+						{
+							key: "resetS",
+							unit: "s",
+							min: 0.5,
+							max: 60,
+							step: 0.5,
+							digits: 1,
+							def: 10,
+						},
+						{
+							key: "baseMarginKva",
+							unit: "kVA",
+							min: 0,
+							max: 0.5,
+							step: 0.01,
+							digits: 2,
+							def: 0.1,
+						},
+						{
+							key: "exitLeadFrac",
+							unit: "%",
+							min: 0,
+							max: 1,
+							step: 0.05,
+							digits: 2,
+							scale: 100,
+							def: 0.5,
+						},
+						{
+							key: "maxTempC",
+							unit: "°C",
+							min: 30,
+							max: 90,
+							step: 1,
+							digits: 0,
+							def: 55,
+						},
 					],
 				},
 				{
 					id: "control",
 					fields: [
-						{ key: "maxCloseness", unit: "0–1", min: 0.3, max: 0.95, step: 0.05, digits: 2 },
-						{ key: "trimMaxA", unit: "A", min: 0, max: 4, step: 0.25, digits: 2 },
-						{ key: "ampMin", unit: "A", min: 2, max: 16, step: 1, digits: 0 },
-						{ key: "ampMax", unit: "A", min: 10, max: 32, step: 1, digits: 0 },
-						{ key: "raiseTable", type: "text", unit: "A:s" },
-						{ key: "reduceTable", type: "text", unit: "A:s" },
+						{
+							key: "trimMaxA",
+							unit: "A",
+							min: 0,
+							max: 4,
+							step: 0.25,
+							digits: 2,
+							def: 2,
+						},
+						{ key: "ampMin", unit: "A", min: 2, max: 16, step: 1, digits: 0, def: 6 },
+						{ key: "ampMax", unit: "A", min: 10, max: 32, step: 1, digits: 0, def: 32 },
+						{ key: "raiseTable", type: "pacing", unit: "" },
+						{ key: "reduceTable", type: "pacing", unit: "" },
 					],
 				},
 				{
 					id: "thrift",
 					fields: [
-						{ key: "floorDwellS", unit: "s", min: 0, max: 60, step: 1, digits: 0 },
-						{ key: "restartDwellS", unit: "s", min: 0, max: 300, step: 5, digits: 0 },
-						{ key: "baseAbortCloseness", unit: "0–1", min: 0.1, max: 0.8, step: 0.05, digits: 2 },
-						{ key: "baseStopCloseness", unit: "0–1", min: 0.2, max: 0.95, step: 0.05, digits: 2 },
-						{ key: "baseTiAbortS", unit: "s", min: 5, max: 300, step: 5, digits: 0 },
-						{ key: "baseTiStopS", unit: "s", min: 10, max: 600, step: 5, digits: 0 },
-						{ key: "blindHoldPolls", unit: "", min: 1, max: 10, step: 1, digits: 0 },
-						{ key: "blindPolls", unit: "", min: 2, max: 30, step: 1, digits: 0 },
+						{
+							key: "floorDwellS",
+							unit: "s",
+							min: 0,
+							max: 60,
+							step: 1,
+							digits: 0,
+							def: 6,
+						},
+						{
+							key: "restartDwellS",
+							unit: "s",
+							min: 0,
+							max: 300,
+							step: 5,
+							digits: 0,
+							def: 30,
+						},
+						{
+							key: "maxCloseness",
+							unit: "%",
+							min: 0.3,
+							max: 0.95,
+							step: 0.05,
+							digits: 2,
+							scale: 100,
+							def: 0.7,
+						},
+						{
+							key: "baseAbortCloseness",
+							unit: "%",
+							min: 0.1,
+							max: 0.8,
+							step: 0.05,
+							digits: 2,
+							scale: 100,
+							def: 0.4,
+						},
+						{
+							key: "baseStopCloseness",
+							unit: "%",
+							min: 0.2,
+							max: 0.95,
+							step: 0.05,
+							digits: 2,
+							scale: 100,
+							def: 0.75,
+						},
+						{
+							key: "baseTiAbortS",
+							unit: "s",
+							min: 5,
+							max: 300,
+							step: 5,
+							digits: 0,
+							def: 30,
+						},
+						{
+							key: "baseTiStopS",
+							unit: "s",
+							min: 10,
+							max: 600,
+							step: 5,
+							digits: 0,
+							def: 90,
+						},
+						{
+							key: "blindHoldPolls",
+							unit: this.$t("loadManagement.settings.unitReadings"),
+							min: 1,
+							max: 10,
+							step: 1,
+							digits: 0,
+							def: 2,
+						},
+						{
+							key: "blindPolls",
+							unit: this.$t("loadManagement.settings.unitReadings"),
+							min: 2,
+							max: 30,
+							step: 1,
+							digits: 0,
+							def: 8,
+						},
 						{ key: "blindAction", type: "select", unit: "", options: ["stop", "hold"] },
-						{ key: "blindHoldA", unit: "A", min: 0, max: 32, step: 1, digits: 0 },
+						{
+							key: "blindHoldA",
+							unit: "A",
+							min: 0,
+							max: 32,
+							step: 1,
+							digits: 0,
+							def: 10,
+						},
 					],
 				},
 			];
@@ -405,23 +769,119 @@ export default defineComponent({
 				},
 				{
 					label: this.$t("loadManagement.settings.tiles.budget"),
-					value: this.fmtNumber(s.plannedCloseness, 2),
+					value: `${this.fmtNumber(s.plannedCloseness * 100, 0)} %`,
 				},
 			];
 		},
 	},
+	watch: {
+		// the chip row follows the section on screen
+		current(id: string) {
+			document
+				.getElementById(`lm-chip-${id}`)
+				?.scrollIntoView({ block: "nearest", inline: "nearest" });
+		},
+	},
+	mounted() {
+		// the index follows the section at the top of the screen
+		this.spy = new IntersectionObserver(
+			(entries) => {
+				const top = entries
+					.filter((e) => e.isIntersecting)
+					.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+				if (top) this.current = top.target.id.replace("lm-section-", "");
+			},
+			{ rootMargin: "0px 0px -70% 0px" }
+		);
+		for (const sec of this.sections) {
+			const el = document.getElementById(this.sectionId(sec.id));
+			if (el) this.spy.observe(el);
+		}
+		window.addEventListener("scroll", this.atEnd, { passive: true });
+	},
+	beforeUnmount() {
+		this.spy?.disconnect();
+		window.removeEventListener("scroll", this.atEnd);
+	},
 	methods: {
+		chipsScrolled(e: Event) {
+			const el = e.target as HTMLElement;
+			this.chipsEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 2;
+		},
+		atEnd() {
+			const doc = document.documentElement;
+			if (window.innerHeight + window.scrollY >= doc.scrollHeight - 4) {
+				this.current = this.sections[this.sections.length - 1]!.id;
+			}
+		},
 		sectionId(id: string): string {
 			return `lm-section-${id}`;
 		},
 		// the app routes by hash, so the index scrolls instead of linking
+		toggle(id: string) {
+			this.open = { ...this.open, [id]: !this.open[id] };
+		},
 		scrollTo(id: string) {
-			document
-				.getElementById(this.sectionId(id))
-				?.scrollIntoView({ behavior: "smooth", block: "start" });
+			this.current = id;
+			if (id in this.open || this.groups.some((g) => g.id === id) || id === "import") {
+				this.open = { ...this.open, [id]: true };
+			}
+			this.$nextTick(() =>
+				document
+					.getElementById(this.sectionId(id))
+					?.scrollIntoView({ behavior: "smooth", block: "start" })
+			);
+		},
+		curveValue(key: string): number {
+			return (this.config as unknown as Record<string, number>)[key]!;
+		},
+		askLine(key: string, value: number) {
+			const k = key as "contractKva" | "k";
+			const contract = k === "contractKva" ? value : this.config.contractKva;
+			const factor = k === "k" ? value : this.config.k;
+			this.pendingLine = { key: k, value, line: contract * factor };
+		},
+		applyLine() {
+			const p = this.pendingLine;
+			if (!p) return;
+			this.pendingLine = null;
+			this.save({ [p.key]: p.value }, p.key, p.value);
+		},
+		undoLine() {
+			const p = this.pendingLine;
+			this.pendingLine = null;
+			if (!p) return;
+			const row = this.$refs[`row-${p.key}`] as { reset: () => void }[] | undefined;
+			row?.[0]?.reset();
+			this.$nextTick(() => document.getElementById(`lm-${p.key}`)?.focus());
+		},
+		feedNote(lp: LoadLoadpoint): string {
+			if (!this.lpConfig(lp.name).measureTopic) return "";
+			if (lp.feedAgeS == null) return this.$t("loadManagement.settings.feedNone");
+			return this.$t("loadManagement.settings.feedAge", {
+				s: this.fmtNumber(lp.feedAgeS, 0),
+			});
+		},
+		feedNoteClass(lp: LoadLoadpoint): string {
+			return lp.feedAgeS == null || lp.feedAgeS > 30 ? "warn-text" : "text-primary";
 		},
 		onEnabled(e: Event) {
-			this.save({ enabled: (e.target as HTMLInputElement).checked }, "enabled");
+			const el = e.target as HTMLInputElement;
+			if (el.checked) {
+				this.pendingOff = false;
+				this.save({ enabled: true }, "enabled");
+				return;
+			}
+			el.checked = true;
+			this.pendingOff = true;
+		},
+		keepOn() {
+			this.pendingOff = false;
+			this.$nextTick(() => document.getElementById("lmEnabled")?.focus());
+		},
+		turnOff() {
+			this.pendingOff = false;
+			this.save({ enabled: false }, "enabled");
 		},
 		onMeterUri(e: Event) {
 			this.save({ meterUri: (e.target as HTMLInputElement).value }, "meterUri");
@@ -457,9 +917,21 @@ export default defineComponent({
 						? settings[key]
 						: (cfg as unknown as Record<string, string | number>)[key];
 				let text = this.$t("loadManagement.settings.saved");
-				if (typeof asked === "number" && typeof got === "number" && Math.abs(got - asked) > 1e-9) {
-					text = this.$t("loadManagement.settings.clamped", { value: got });
-				} else if (typeof asked === "string" && typeof got === "string" && asked.trim() !== got) {
+				if (
+					typeof asked === "number" &&
+					typeof got === "number" &&
+					Math.abs(got - asked) > 1e-9
+				) {
+					const scale =
+						this.groups.flatMap((g) => g.fields).find((f) => f.key === key)?.scale || 1;
+					text = this.$t("loadManagement.settings.clamped", {
+						value: Number((got * scale).toFixed(2)),
+					});
+				} else if (
+					typeof asked === "string" &&
+					typeof got === "string" &&
+					asked.trim() !== got
+				) {
 					text = got
 						? this.$t("loadManagement.settings.normalised", { value: got })
 						: this.$t("loadManagement.settings.saved");
@@ -515,9 +987,13 @@ export default defineComponent({
 	font-weight: 600;
 	color: var(--evcc-gray);
 }
-.index-link:hover {
+.index-link.active {
 	background: var(--evcc-box);
 	color: var(--evcc-default-text);
+}
+.index-link:hover {
+	color: var(--evcc-default-text);
+	text-decoration: underline;
 }
 .index-note {
 	margin: 1rem 0.75rem 0;
@@ -542,14 +1018,24 @@ fieldset {
 }
 .lm-box {
 	background: var(--evcc-box);
-	border-radius: 2rem;
-	padding: 1.75rem 2rem 1rem;
+	border: 1px solid var(--bs-border-color-translucent);
+	border-radius: 1rem;
+	padding: 1.5rem 1.5rem 0.75rem;
 	scroll-margin-top: 1rem;
+}
+/* the sticky chip row covers the top of a section it scrolls to */
+@media (max-width: 991px) {
+	.lm-box {
+		scroll-margin-top: 4.5rem;
+	}
+}
+.box-title + .setting-row {
+	border-top: 0;
 }
 @media (max-width: 575px) {
 	.lm-box {
 		padding: 1.25rem 1.25rem 0.5rem;
-		border-radius: 1.5rem;
+		border-radius: 1rem;
 	}
 }
 .box-title {
@@ -557,10 +1043,59 @@ fieldset {
 	font-weight: 700;
 	margin: 0 0 0.25rem;
 }
+.box-subtitle a {
+	color: inherit;
+	text-decoration: underline;
+}
 .box-subtitle {
 	font-size: 0.875rem;
 	color: var(--evcc-gray);
 	margin-bottom: 1rem;
+}
+.box-heading {
+	margin: 0;
+}
+.box-heading .box-title {
+	display: block;
+}
+.box-heading .box-subtitle {
+	display: block;
+	text-transform: none;
+	letter-spacing: normal;
+	font-weight: normal;
+}
+.box-toggle {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 1rem;
+	width: 100%;
+	border: 0;
+	background: none;
+	color: inherit;
+	text-align: start;
+	text-transform: inherit;
+	padding: 0 0 0.75rem;
+}
+.box-toggle .box-subtitle {
+	margin-bottom: 0;
+}
+.box-toggle:focus-visible {
+	outline: var(--bs-focus-ring-width) solid var(--bs-focus-ring-color);
+	border-radius: 8px;
+}
+.chevron {
+	flex-shrink: 0;
+	color: var(--evcc-gray);
+	transition: transform var(--evcc-transition-fast);
+}
+.chevron--open {
+	transform: rotate(180deg);
+}
+@media (prefers-reduced-motion: reduce) {
+	.chevron {
+		transition: none;
+	}
 }
 .switch {
 	width: 2.75rem;
@@ -588,6 +1123,7 @@ fieldset {
 }
 .tile-label {
 	font-size: 0.75rem;
+	line-height: 1.3;
 	color: var(--evcc-gray);
 }
 .charger {
@@ -598,9 +1134,10 @@ fieldset {
 }
 .charger-head {
 	display: flex;
+	flex-wrap: nowrap;
 	align-items: center;
 	justify-content: space-between;
-	gap: 1rem;
+	gap: 0.5rem 1rem;
 	margin-bottom: 0.9rem;
 }
 .charger-title {
@@ -610,7 +1147,7 @@ fieldset {
 }
 .feeds {
 	display: grid;
-	grid-template-columns: repeat(3, minmax(0, 1fr));
+	grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
 	gap: 1rem;
 }
 @media (max-width: 991px) {
@@ -620,14 +1157,124 @@ fieldset {
 }
 .feed-label {
 	display: block;
-	font-size: 0.7rem;
 	font-weight: 700;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	color: var(--evcc-gray);
 	margin-bottom: 0.35rem;
+}
+.confirm-text {
+	flex: 1 1 100%;
+}
+.confirm-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 0.5rem;
+	margin-left: auto;
+}
+.instant-note {
+	font-size: 0.875rem;
+	color: var(--evcc-gray);
+	margin-bottom: 0.75rem;
+}
+/* one row that scrolls sideways and stays at the top while the page scrolls */
+.index-chips {
+	position: sticky;
+	top: 0;
+	z-index: 20;
+	padding: 0.5rem 0;
+	background: var(--evcc-background);
+	display: flex;
+	flex-wrap: nowrap;
+	overflow-x: auto;
+	scrollbar-width: none;
+	gap: 0.5rem;
+	margin-bottom: 1.5rem;
+}
+.index-chip {
+	flex-shrink: 0;
+}
+/* the fade sits over the chips only, so rows scrolling under the bar never show through */
+.index-chips::after {
+	content: "";
+	position: sticky;
+	right: 0;
+	flex: 0 0 2.5rem;
+	margin-left: -2.5rem;
+	background: linear-gradient(to right, transparent, var(--evcc-background));
+	pointer-events: none;
+}
+.index-chips--end::after {
+	visibility: hidden;
+}
+.index-chip.active {
+	background: var(--evcc-default-text);
+	border-color: var(--evcc-default-text);
+	color: var(--evcc-background);
+}
+.topics-help {
+	font-size: 0.85rem;
+	margin: 0 0 1rem;
+	display: grid;
+	gap: 0.4rem;
+}
+.topics-help dt {
+	display: inline;
+	font-weight: 700;
+}
+.topics-help dt::after {
+	content: ": ";
+}
+.topics-help dd {
+	display: inline;
+	margin: 0;
+	color: var(--evcc-gray);
+	overflow-wrap: anywhere;
+}
+.feeds :deep(input) {
+	overflow-wrap: anywhere;
+}
+.feed-help {
+	font-size: 0.8125rem;
+	color: var(--evcc-gray);
+	margin-top: 0.3rem;
+	overflow-wrap: anywhere;
+}
+.switch--pending {
+	opacity: 0.5;
+}
+.line-confirm {
+	display: flex;
+	align-items: center;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	padding: 0.75rem 1rem;
+	border-radius: 1rem;
+	background: color-mix(in srgb, var(--evcc-orange) 12%, transparent);
+	font-size: 0.875rem;
+}
+.unit {
+	min-width: 3.5rem;
+	justify-content: center;
+}
+.feeds :deep(input::placeholder) {
+	font-family: var(--bs-body-font-family);
+	opacity: 0.55;
+}
+.fast-help {
+	font-size: 0.8rem;
+	color: var(--evcc-gray);
+	margin: -0.4rem 0 0.9rem;
+}
+.feed-note {
+	font-size: 0.75rem;
+	margin-top: 0.3rem;
 }
 .unit-select {
 	max-width: 4.5rem;
+}
+.warn-text {
+	color: #9a5200;
+}
+html.dark .warn-text {
+	color: var(--evcc-orange);
 }
 </style>

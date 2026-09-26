@@ -1293,7 +1293,7 @@
   "loadManagement": {
     "title": "Lastmanagement",
     "loading": "Warte auf Daten des Lastmanagements…",
-    "houseLoad": "Hauslast",
+    "houseLoad": "Gesamtlast",
     "cancel": "Abbrechen",
     "tabs": {
       "overview": "Jetzt",
@@ -1305,39 +1305,47 @@
       "off": "Aus",
       "standby": "Bereit",
       "blind": "Zähler ohne Messwert",
-      "burst": "Supercharging",
-      "base": "Ausgleich"
+      "burst": "Burst",
+      "base": "Unter der Grenze",
+      "attention": "Braucht Aufmerksamkeit",
+      "over": "Über der Grenze",
+      "supercharge": "Supercharging"
     },
     "status": {
-      "off": "Lastmanagement ist aus. Nichts hält das Haus unter der Auslöseschwelle.",
+      "off": "Lastmanagement ist aus. Nichts hält das Haus unter der Auslösegrenze.",
       "notConfigured": "Kein Zähler konfiguriert. Zähleradresse in den Einstellungen setzen.",
       "standby": "Nichts lädt. Der Ausgleich startet von selbst, sobald ein Auto laden möchte.",
       "starting": "Startet, der erste Zählerwert entscheidet, was die Autos bekommen.",
-      "burst": "Über der Auslöseschwelle von {line}, bis {target}, solange das Boost-Budget reicht.",
+      "burst": "Burst: bis {target} erlaubt, solange das Sicherungsbudget reicht.",
       "noCar": "Kein Auto lädt, das Haus hat die vollen {line} für sich.",
-      "charging": "{name} mit {amps} A",
+      "charging": "{name} darf {amps} A ziehen",
       "stillDrawing": "{name} zieht noch {amps} A, zum Stopp aufgefordert",
-      "waiting": "{name} wartet (zu wenig Leistung für seine Priorität)",
-      "under": "Unter der Schwelle von {line}, kein Auslöserisiko.",
-      "over": "Über der Schwelle von {line} um {kva} kVA, wird reduziert."
+      "waiting": "{name} wartet auf Leistung",
+      "over": "Über der Grenze um {kva} kVA, wird zurückgeregelt.",
+      "waitingMany": "{names} warten auf Leistung",
+      "waitingFor": "{name} wartet auf {first}",
+      "overSupercharge": "Über der Grenze um {kva} kVA für den Supercharge, im Rahmen des Sicherungsbudgets."
     },
     "ledger": {
-      "line": "{kva} kVA Auslöseschwelle",
-      "burst": "{kva} kVA Boost-Ziel",
-      "house": "Haus",
+      "line": "{kva} kVA Auslösegrenze",
+      "burst": "{kva} kVA Boost-Ziel",
+      "house": "Übriges Haus",
       "free": "Frei",
       "over": "Über der Schwelle um",
       "noReading": "Noch kein Zählerwert. Der Balken füllt sich, sobald der Zähler antwortet.",
-      "overclaim": "Die Fahrzeugsensoren melden {kva} kVA mehr als der Zähler misst. Der Zähler gilt, die Autos werden angepasst.",
-      "ofLine": "/ {kva} kVA"
+      "overclaim": "Die Fahrzeugsensoren melden {kva} kVA mehr als der Zähler misst. Der Zähler gilt, die Autos werden angepasst.",
+      "ofLine": "/ {kva} kVA",
+      "lineTitle": "Auslösegrenze"
     },
     "patience": {
-      "title": "Verbrauchte Zählergeduld",
+      "title": "Sicherungsbudget",
       "clear": "0 % · Zähler auf null",
       "banked": "{pct} % · {s} s angesammelt",
       "burstsStop": "Boosts enden bei {pct} %",
       "opens": "100 % · Schalter löst aus",
-      "opensAt": "bei 100 % löst der Zähler aus"
+      "opensAt": "bei 100 % löst der Zähler aus",
+      "explain": "jetzt genutzt · löst bei 100 % aus",
+      "tick": "Die Markierung zeigt, wo dieser Burst endet."
     },
     "supercharge": {
       "label": "Supercharging",
@@ -1347,40 +1355,77 @@
       "onForever": "{name} unbegrenzt",
       "stoodDown": "Supercharging hat sich selbst beendet ({reason}). Aus- und wieder einschalten, um es erneut zu versuchen.",
       "until": "bis {time}",
-      "hours": "+{h} h",
+      "hours": "+{h} Stunde | +{h} Stunden",
       "indefinitely": "Unbegrenzt",
       "indefinitelyShort": "unbegrenzt",
-      "changeTime": "Endzeit des Supercharging ändern",
-      "modalTitle": "Supercharging {name}",
-      "modalDescription": "Kurze Boosts über der Auslöseschwelle, bemessen nach der Auslösekurve des Zählers. Danach läuft der Ausgleich weiter. Bis wann?",
+      "changeTime": "Ende ändern oder stoppen",
+      "modalTitle": "Supercharge für {name}",
+      "modalDescription": "Lädt schneller in kurzen Bursts über der Auslösegrenze, bis zur Endzeit.",
       "day": "Tag",
       "time": "Uhrzeit",
       "today": "Heute",
       "tomorrow": "Morgen",
-      "summaryUntil": "Supercharging endet {time}.",
-      "summaryForever": "Supercharging bleibt an, bis du es ausschaltest.",
-      "inPast": "Diese Zeit ist bereits vorbei.",
+      "summaryUntil": "Endet {time}, in {duration}.",
+      "summaryForever": "Bleibt an, bis du es stoppst.",
+      "inPast": "Diese Zeit ist schon vorbei. Wähle eine spätere Zeit.",
       "save": "Supercharging",
       "turnOff": "Ausschalten",
-      "custom": "Zeit wählen",
       "noEnd": "Ohne Ende",
       "untilMorning": "Bis {time}",
-      "start": "Starten",
-      "apply": "Speichern"
+      "start": "Supercharge starten",
+      "apply": "Speichern",
+      "quickPicks": "Schnellauswahl",
+      "hour": "Stunde",
+      "minute": "Minute",
+      "needsOn": "Supercharge braucht eingeschaltetes Lastmanagement",
+      "noEndSwitch": "Kein Ende",
+      "paused": "Supercharge pausiert",
+      "pillNoEnd": "Supercharge, ohne Ende",
+      "pillUntil": "Supercharge bis {time}",
+      "stopAt": "Bis",
+      "stopNow": "Supercharge stoppen",
+      "tomorrowAt": "Morgen {time}",
+      "todayLower": "heute",
+      "tomorrowLower": "morgen",
+      "untilShort": "Bis {time}",
+      "activeTitle": "{name} im Supercharge",
+      "activeDescription": "Wähle ein neues Ende oder schalte es jetzt aus.",
+      "active": "Supercharging",
+      "noEndLower": "bleibt an",
+      "todayAt": "Heute {time}",
+      "activeNoEnd": "Hat derzeit kein Ende.",
+      "ahead": "{first} steht in der Ladereihenfolge vorn, daher kann {name} warten.",
+      "pausedTitle": "Supercharge für {name} pausiert",
+      "daysHours": "{d} Tag {h} h | {d} Tage {h} h",
+      "activeWas": "Endet derzeit {time}.",
+      "nowFirst": "{name} lädt jetzt zuerst.",
+      "movedEarliest": "Auf die früheste Zeit verschoben.",
+      "picksFromNow": "Schnellwahl zählt ab jetzt.",
+      "aheadSupercharge": "{first} ist vorn und im Supercharge. Zuerst laden pausiert diesen Supercharge, solange {name} lädt.",
+      "nowFirstPaused": "{name} lädt jetzt zuerst. Der Supercharge von {other} wartet so lange."
     },
     "reason": {
       "notConnected": "Nicht angesteckt",
       "stoodOff": "Bekommt Strom und nimmt keinen, pausiert für {time}. Sein Anteil geht an das andere Auto. Meist das Ladelimit des Autos selbst.",
-      "notWanted": "Lädt nicht (Modus, Limit oder Plan)",
+      "notWanted": "Lädt gerade nicht",
       "disabled": "Lastmanagement ist aus",
       "standby": "Lastmanagement startet mit dem ersten Ladevorgang",
       "pausedDrawing": "Pausiert, zieht aber noch {amps} A, erneute Stopp-Aufforderung",
-      "paused": "Pausiert, zu wenig Leistung für seine Priorität",
+      "paused": "Wartet auf Leistung",
       "comingUp": "Steigt auf seinen Anteil",
-      "measured": "{amps} A gemessen",
+      "measured": "{amps} A gemessen",
       "sensorSays": "(Sensor meldet {amps})",
       "done": "fertig gegen {time} (in {duration})",
-      "nextChange": "nächste Änderung in {s} s"
+      "nextChange": "nächste Änderung in {s} s",
+      "bursting": "Burst über der Grenze",
+      "modeOff": "Modus ist Aus",
+      "atLimit": "Hat sein Limit von {soc} % erreicht",
+      "scStoodDown": "Supercharge ausgesetzt: {reason}",
+      "scTooWarm": "Supercharge wartet: Wallbox zu warm",
+      "scNoRoom": "Supercharge wartet: gerade kein Platz für einen Burst",
+      "scRecovering": "Supercharge an, zwischen Bursts",
+      "firstOther": "{name} lädt zuerst",
+      "noRoom": "Kein Platz unter der Grenze"
     },
     "row": {
       "title": "Lastmanagement",
@@ -1388,26 +1433,10 @@
     },
     "card": {
       "allowed": "Erlaubt",
-      "paused": "Pausiert",
-      "shares": "Teilt gleichmäßig",
-      "order": "Lädt als {n}.",
-      "priority": "Priorität",
-      "priorityDown": "Priorität senken",
-      "priorityUp": "Priorität erhöhen",
       "slowNote": "Dieser Lader reagiert langsam, seine Boosts enden früher und bringen weniger.",
-      "car": "Auto",
-      "charge": "Ladestand",
-      "toGo": "Noch",
-      "average": "Durchschnitt",
-      "mode": "Modus",
-      "range": "Bereich",
-      "measured": "Gemessen",
-      "pauses": "Pausen",
-      "src": {
-        "charger": "live vom Lader gelesen",
-        "mqtt": "aus dem MQTT-Feed",
-        "evcc": "aus dem letzten Zyklus des Ladepunkts"
-      }
+      "whyBlind": "Zurückgehalten, Zähler antwortet nicht",
+      "whyBursting": "Burst über der Grenze",
+      "upTo": "bis {a} A"
     },
     "stats": {
       "budget": "Verfügbarer Strom",
@@ -1419,33 +1448,38 @@
       "house": "Haus ohne Autos",
       "ofLine": "{pct} % der Schwelle",
       "houseHelp": "Zählerwert minus Verbrauch der Autos.",
-      "average": "Sitzungsdurchschnitt",
-      "vsLine": "{pct} % gegenüber der Schwelle",
+      "average": "Mittel",
       "averageHelp": "Mittlere Scheinleistung seit Beginn des Ausgleichs.",
-      "bursts": "Boosts",
+      "bursts": "Bursts",
       "lastChanges": "letzter brauchte {n} Stromänderungen",
       "burstsHelp": "Boosts in dieser Sitzung. Ein sauberer Boost kostet zwei Stromänderungen.",
       "pauses": "Schützvorgänge",
-      "pausesHelp": "Pausen in dieser Sitzung. Jede ist ein mechanischer Schaltvorgang im Lader.",
+      "pausesHelp": "Wie oft ein Auto in dieser Sitzung pausiert wurde. Jede Pause schaltet ein Schütz im Lader.",
       "commands": "Strombefehle",
       "commandsHelp": "In dieser Sitzung gesendete Stromänderungen.",
       "window": "Boost-Fenster",
-      "windowHelp": "Wie lange ein Boost am Ziel laufen darf und einen Lastsprung im Haus noch übersteht."
+      "windowHelp": "Wie lange ein Boost am Ziel laufen darf und einen Lastsprung im Haus noch übersteht.",
+      "history": "diese Sitzung · Verlauf",
+      "thisSession": "diese Sitzung ·",
+      "historyLink": "Verlauf",
+      "aboveLine": "{pct} % über der Grenze",
+      "belowLine": "{pct} % unter der Grenze",
+      "atLine": "an der Grenze"
     },
     "settings": {
       "general": "Installation",
       "enabled": "Lastmanagement für das ganze Haus",
-      "enabledHelp": "Hält das Haus unter der Auslöseschwelle und verteilt die Leistung nach Priorität der Ladepunkte. Aus heißt: nichts tut es.",
+      "enabledHelp": "Hält das Haus unter der Auslösegrenze und verteilt Leistung nach Ladereihenfolge. Ausgeschaltet wird stattdessen jeder Ladepunkt begrenzt.",
       "meterUri": "Zähleradresse",
       "meterUriHelp": "Shelly-EM-Kanal, z. B. http://192.168.1.10/emeter/0. Wird beim Ausgleich direkt einmal pro Sekunde gelesen.",
       "saved": "Gespeichert",
       "clamped": "Begrenzt auf {value}",
       "normalised": "Gespeichert als {value}",
       "loadpoints": "Ladepunkte",
-      "loadpointsHelp": "Wie jeder Lader gemessen wird. Prioritäten, Ströme und Modi sind Einstellungen des Ladepunkts.",
+      "loadpointsHelp": "Wie jedes Ladegerät gemessen wird. Strom und Modus stellt der Ladepunkt selbst ein, die Ladereihenfolge der",
       "fast": "Schneller Lader",
-      "fastHelp": "Der Lader reagiert in etwa einer Sekunde und sein Strom kann jede Sekunde gelesen werden (z. B. per MQTT).",
-      "measureTopic": "Strom-Feed (MQTT)",
+      "fastHelp": "Für Ladegeräte einschalten, die innerhalb einer Sekunde reagieren und ihren Strom jede Sekunde melden. Ihre Bursts können länger laufen.",
+      "measureTopic": "Strom-Feed",
       "measureTopicHelp": "Optionales Topic mit dem Strom dieses Autos, z. B. teslamate/cars/1/charger_actual_current.",
       "measureUnit": "Einheit",
       "tempTopic": "Ladertemperatur (MQTT)",
@@ -1454,22 +1488,22 @@
       "maxTopicHelp": "Optionales Topic mit dem höchsten Strom, den das Fahrzeug gerade annimmt, z. B. teslamate/cars/1/charge_current_request_max. Darüber wird nichts geplant.",
       "tiles": {
         "expected": "Erwartete mittlere Leistung",
-        "gain": "gegenüber der Auslöseschwelle",
+        "gain": "gegenüber der Auslösegrenze",
         "window": "Boost-Fenster",
-        "budget": "Nähe-Budget pro Boost"
+        "budget": "Budget je Burst"
       },
       "groups": {
         "burst": {
-          "title": "Supercharging",
-          "subtitle": "Wie groß ein Boost ist und was er aushalten muss"
+          "title": "Burstgröße",
+          "subtitle": "Wie groß ein Burst ist und wie viel Reserve er lässt"
         },
         "control": {
-          "title": "Regelung",
-          "subtitle": "Wann ein Boost aufgibt und wie schnell die Regelung korrigiert"
+          "title": "Tempo und Ströme",
+          "subtitle": "Wann ein Burst aufgibt und wie schnell sich der Strom ändert"
         },
         "thrift": {
-          "title": "Schützschonung und Absicherungen",
-          "subtitle": "Einbrüche überbrücken, und was passiert, wenn der Zähler schweigt"
+          "title": "Pausen und Sicherheit",
+          "subtitle": "Einbrüche überbrücken und was passiert, wenn der Zähler schweigt"
         }
       },
       "fields": {
@@ -1482,12 +1516,12 @@
           "help": "Vertraglich vereinbarte Scheinleistung des Anschlusses."
         },
         "k": {
-          "label": "Faktor k",
-          "help": "Der Zähler löst bei oder unter k × Vertragsleistung nie aus (Standard 1,2)."
+          "label": "Auslösefaktor",
+          "help": "Der Zähler löst bis zu diesem Vielfachen der Vertragsleistung nie aus."
         },
         "q": {
-          "label": "Auslösekurve Q",
-          "help": "Verzögerungskonstante der Zählerkurve Tdisp = Q / (S/SC − k)."
+          "label": "Überlasttoleranz",
+          "help": "Wie lange der Zähler Überlast über der Grenze toleriert. Höher toleriert länger."
         },
         "burstKva": {
           "label": "Boost-Ziel",
@@ -1495,35 +1529,35 @@
         },
         "bumpKva": {
           "label": "Lastreserve Haus",
-          "help": "Ein plötzlicher Lastsprung, den ein Boost im ungünstigsten Moment überstehen muss."
+          "help": "Eine plötzliche Hauslast, die ein Burst verkraften muss."
         },
         "marginS": {
           "label": "Reaktionsreserve",
-          "help": "Verbleibende Sekunden nach diesem Sprung. Weniger heißt längere Boosts und weniger Reserve."
+          "help": "Verbleibende Reaktionszeit nach so einer Last. Weniger ergibt längere Bursts und weniger Reserve."
         },
         "resetS": {
-          "label": "Abkühlzeit",
+          "label": "Pause zwischen Bursts",
           "help": "Wie lange das Haus vor dem nächsten Boost unter der Schwelle sein muss."
         },
         "baseMarginKva": {
-          "label": "Sicherheitsabstand",
-          "help": "Wie weit unter der Auslöseschwelle der Ausgleich zielt."
+          "label": "Reserve der Regelung",
+          "help": "Wie weit unter der Auslösegrenze der Ausgleich zielt."
         },
         "exitLeadFrac": {
-          "label": "Ausstiegsvorlauf",
-          "help": "Anteil der Absenkzeit, um den der Boost-Ausstieg vorgezogen wird."
+          "label": "Bursts früher beenden um",
+          "help": "Anteil der Abregelzeit, um den ein Burst früher zurückgeht."
         },
         "maxTempC": {
           "label": "Keine Boosts über",
           "help": "Ladertemperatur, über der Boosts pausieren. Der Ausgleich läuft weiter."
         },
         "maxCloseness": {
-          "label": "Abbruch bei Nähe",
-          "help": "Harter Boost-Abbruch, wenn dieser Anteil der Zählergeduld verbraucht ist."
+          "label": "Burst abbrechen bei",
+          "help": "Genutztes Sicherungsbudget, das einen Burst sofort beendet."
         },
         "trimMaxA": {
-          "label": "Grenze der Liefer-Korrektur",
-          "help": "Größte Korrektur der Liefer-Korrektur. 0 schaltet sie ab."
+          "label": "Korrekturgrenze",
+          "help": "Größte Korrektur für Autos, die unter oder über ihrem Sollwert laden. 0 schaltet sie aus."
         },
         "ampMin": {
           "label": "Ersatz-Mindeststrom",
@@ -1534,47 +1568,47 @@
           "help": "Nur genutzt, wenn ein Ladepunkt kein Maximum meldet."
         },
         "raiseTable": {
-          "label": "Takt für Erhöhungen",
-          "help": "Zeilen Ampere:Sekunden, wie lange eine Erhöhung ansteht, bevor sie gesendet wird."
+          "label": "Takt beim Erhöhen",
+          "help": "Wie lange eine Erhöhung um mindestens so viele Ampere wartet."
         },
         "reduceTable": {
-          "label": "Takt für Absenkungen",
-          "help": "Zeilen Ampere:Sekunden für Absenkungen. Notfälle warten nie."
+          "label": "Takt beim Senken",
+          "help": "Dasselbe für Absenkungen. Notfälle warten nie."
         },
         "floorDwellS": {
-          "label": "Am Minimum halten für",
-          "help": "Ein Einbruch unter das Minimum eines Autos wird so lange überbrückt, bevor es pausiert."
+          "label": "Einbruch überbrücken für",
+          "help": "Zeit unter dem Minimum eines Autos, bevor es pausiert."
         },
         "restartDwellS": {
           "label": "Warten vor Fortsetzen",
           "help": "Nach einer Pause mindestens so lange warten, bevor das Auto fortsetzt."
         },
         "baseAbortCloseness": {
-          "label": "Reduzieren bei Nähe",
-          "help": "Im Ausgleich gehen alle Autos bei dieser Nähe auf ihr Minimum."
+          "label": "Autos auf Minimum bei",
+          "help": "Genutztes Sicherungsbudget während der Regelung."
         },
         "baseStopCloseness": {
-          "label": "Stoppen bei Nähe",
-          "help": "Im Ausgleich werden alle Autos bei dieser Nähe gestoppt."
+          "label": "Alle Autos stoppen bei",
+          "help": "Genutztes Sicherungsbudget während der Regelung."
         },
         "baseTiAbortS": {
-          "label": "Angesammelte Sekunden bis Reduzieren",
-          "help": "Sekunden über der Schwelle im Ausgleich, bevor alle Autos aufs Minimum gehen."
+          "label": "Zeit über der Grenze bis Minimum",
+          "help": "Bei der Regelung gehen alle Autos nach dieser Zeit über der Grenze auf ihr Minimum."
         },
         "baseTiStopS": {
-          "label": "Angesammelte Sekunden bis Stoppen",
-          "help": "Sekunden über der Schwelle im Ausgleich, bevor alle Autos gestoppt werden."
+          "label": "Zeit über der Grenze bis Stopp",
+          "help": "Bei der Regelung stoppen alle Autos nach dieser Zeit über der Grenze."
         },
         "blindHoldPolls": {
-          "label": "Fehllesungen bis Halten",
+          "label": "Autos halten nach verpassten Werten",
           "help": "Verpasste Zählerwerte, bevor die Autos auf ihrem Minimum gehalten werden."
         },
         "blindPolls": {
-          "label": "Fehllesungen bis Stoppen",
-          "help": "Verpasste Zählerwerte, bevor die Aktion ohne Messwert greift."
+          "label": "Handeln nach verpassten Werten",
+          "help": "Verpasste Zählerwerte, bevor die Aktion unten greift."
         },
         "blindAction": {
-          "label": "Wenn der Zähler stumm bleibt",
+          "label": "Wenn der Zähler schweigt",
           "help": "Alle Autos stoppen oder eines mit festem Strom weiterladen.",
           "options": {
             "stop": "Laden stoppen",
@@ -1582,54 +1616,100 @@
           }
         },
         "blindHoldA": {
-          "label": "Strom ohne Messwert",
-          "help": "Strom des einen weiterladenden Autos, solange der Zähler stumm ist."
+          "label": "Strom für das weiterladende Auto",
+          "help": "Nur wenn ein Auto weiterlädt, während der Zähler schweigt."
         }
       },
       "locked": "Nur Ansicht. Als Admin anmelden, um diese Einstellungen zu ändern.",
       "login": "Anmelden",
       "onThisPage": "Auf dieser Seite",
-      "instant": "Jede Änderung wirkt innerhalb einer Sekunde. Kein Neustart, kein Speichern-Knopf."
+      "instant": "Jede Änderung wirkt innerhalb einer Sekunde. Kein Neustart, kein Speichern-Knopf.",
+      "default": "Standard {value}.",
+      "range": "Bereich {min} bis {max}{unit}.",
+      "resetTo": "Auf {value} zurücksetzen",
+      "feedAge": "Letzter Wert vor {s} s",
+      "feedNone": "Noch kein Wert empfangen",
+      "line": "Auslösegrenze",
+      "lineHelp": "Vertragsleistung mal Faktor. Die Regelung bleibt darunter, Bursts gehen kurz darüber.",
+      "lineConfirm": "Damit liegt die Auslösegrenze bei {kva} kVA (jetzt {now} kVA). Nur übernehmen, wenn sich dein Vertrag geändert hat.",
+      "lineApply": "{kva} kVA übernehmen",
+      "lineUndo": "{kva} kVA behalten",
+      "orderLink": "Tab Jetzt.",
+      "pacing": {
+        "add": "Zeile hinzufügen",
+        "amps": "Mindestens",
+        "seconds": "Wartet",
+        "ampsRow": "Zeile {n}, Ampere",
+        "secondsRow": "Zeile {n}, Sekunden",
+        "remove": "Entfernen",
+        "removeRow": "Zeile {n} entfernen",
+        "reset": "Zurücksetzen auf {v}",
+        "undo": "Rückgängig",
+        "resetDefault": "Auf Standard zurücksetzen",
+        "invalid": "Ampere müssen über 0 und Sekunden 0 oder mehr sein.",
+        "draft": "Neue Zeile: wird gespeichert, sobald beide Felder einen Wert haben."
+      },
+      "example": "z. B. {v}",
+      "offConfirm": "Lastmanagement ausschalten? Jeder Ladepunkt wird dann auf {a} A begrenzt und Bursts enden.",
+      "offKeep": "Anlassen",
+      "offApply": "Ausschalten",
+      "outOfRange": "{value} liegt außerhalb {min} bis {max}{unit}. {kept} bleibt.",
+      "measureTopicShort": "Optionales MQTT-Topic mit dem Strom dieses Autos, z. B. von TeslaMate.",
+      "maxTopicShort": "Optionales Topic mit dem höchsten Strom, den das Auto gerade annimmt.",
+      "tempTopicShort": "Optionales Topic mit der Wallbox-Temperatur in °C.",
+      "notSet": "Nicht gesetzt",
+      "unitReadings": "Werte",
+      "fastOf": "{name} schnelle Wallbox",
+      "undoWas": "Rückgängig (war {value})"
     },
     "bursts": {
       "title": "Boost-Verlauf",
       "count": "{n} Boosts",
       "refresh": "Aktualisieren",
-      "none": "Noch keine Boosts.",
+      "none": "Noch keine Bursts",
       "at": "Zeit",
       "loadpoint": "Ladepunkt",
       "lasted": "Dauer",
       "peak": "Spitze",
-      "closeness": "Nähe",
-      "changes": "Änderungen",
-      "exit": "Beendet durch",
-      "help": "Ein sauberer Boost kostet zwei Stromänderungen und endet planmäßig. Alles andere verdient einen Blick.",
+      "closeness": "Sicherungsbudget",
+      "exit": "Ergebnis",
       "exits": {
         "deadline": {
-          "label": "Planmäßig",
+          "label": "Wie geplant",
           "help": "Hat sein Budget verbraucht und ist zurückgegangen. Alles in Ordnung."
         },
         "bump_margin": {
-          "label": "Lastreserve",
+          "label": "Hauslast stieg",
           "help": "Die gemessene Leistung lag über der Bemessung des Boosts."
         },
         "closeness": {
-          "label": "Abbruch Nähe",
-          "help": "Harter Abbruch: die Nähe hat die Obergrenze überschritten."
+          "label": "Budgetgrenze",
+          "help": "Harter Abbruch: das Sicherungsbudget hat seine Grenze überschritten."
         },
         "meter_blind": {
-          "label": "Zähler ohne Messwert",
+          "label": "Zähler still",
           "help": "Der Zähler hat nicht mehr geantwortet."
         },
         "no_draw": {
-          "label": "Keine Abnahme",
+          "label": "Auto nahm keinen Strom",
           "help": "Das Auto hat den Strom nie angenommen."
         },
         "icp_alarm": {
-          "label": "ICP-Alarm",
+          "label": "Sicherungsalarm",
           "help": "Ein unabhängiger Alarm hat es gemeldet."
         }
-      }
+      },
+      "noneHelp": "Schalte Supercharge für ein Auto auf der Startseite oder im Tab Jetzt ein. Jeder Burst erscheint hier mit seinem Ende.",
+      "older": "Ältere zeigen",
+      "showing": "{n} von {total}",
+      "newOnes": "{n} neuer Burst, anzeigen | {n} neue Bursts, anzeigen",
+      "chipCount": "Burst | Bursts",
+      "chipAverage": "im Schnitt",
+      "chipPeak": "höchstes Sicherungsbudget",
+      "chipEarly": "früh beendet",
+      "showingEarly": "{n} von {total} früh beendeten",
+      "stackLine": "{s} · Spitze {kva} · Budget {pct}",
+      "showingKept": "{n} von {total}. Nur die letzten {total} Bursts werden aufbewahrt."
     },
     "diagnostics": {
       "selftest": "Selbsttest",
@@ -1637,7 +1717,7 @@
       "download": "Diagnose herunterladen",
       "notRun": "Der Selbsttest läuft kurz nach dem Start von selbst.",
       "failed": "{n} fehlgeschlagen · {when}",
-      "passed": "bestanden · {when}",
+      "passed": "Bestanden · {when}",
       "sensors": "Sensoren",
       "sensorsHelp": "Der Zähler gilt. Fahrzeugwerte sind Angaben über einen Teil davon und werden reduziert, wenn sie mehr ergeben.",
       "meter": "Zähler",
@@ -1647,14 +1727,14 @@
       "latency": "Zählerlatenz",
       "floor": "Hausminimum",
       "floorHelp": "Was das Haus mindestens verbraucht, gelernt aus Ruhemessungen.",
-      "claim": "Autos gemeldet / angerechnet",
+      "claim": "Genutzte Autowerte",
       "claimHelp": "Was die Fahrzeugsensoren meldeten gegenüber dem, was der Zähler zuließ.",
       "disagreements": "Abweichungen zum Zähler",
       "sourceOhm": "Netzwiderstand",
       "sourceOhmHelp": "Aus Boosts gelernt: wie stark die Spannung unter Last einbricht.",
       "voltsAtGoal": "Spannung am Boost-Ziel",
       "temp": "Ladertemperatur",
-      "peak": "Größte Nähe",
+      "peak": "Höchstes genutztes Sicherungsbudget",
       "peakBlind": "Ohne Messwert erreicht, also eine Annahme und keine Messung.",
       "learned": "Gelerntes Verhalten",
       "learnedHelp": "Je Lader und Auto gemessen, bewusst pessimistisch. Vor vier Beobachtungen wird nichts genutzt.",
@@ -1663,11 +1743,37 @@
       "rampDown": "Absenkrate",
       "latencyDown": "Latenz Absenkung",
       "latencyUp": "Latenz Erhöhung",
-      "entryOffset": "Einstiegskorrektur"
+      "entryOffset": "Einstiegskorrektur",
+      "control": "Regelung",
+      "polling": "Zählerabfrage",
+      "pollModes": {
+        "standby": "Bereitschaft",
+        "active": "Jede Sekunde",
+        "idle": "Ruhend"
+      },
+      "handedOut": "Vergeben",
+      "writes": "Strombefehle",
+      "blind": "Verpasste Zählerwerte",
+      "checkSettings": "In den Einstellungen prüfen",
+      "entryOffsetHelp": "Gelernter Überschuss zu Beginn eines Bursts.",
+      "blindHelp": "Gerade in Folge verpasste Zählerwerte. Nach der unter Pausen und Sicherheit eingestellten Zahl werden die Autos zurückgehalten.",
+      "passedCount": "{n} Prüfung bestanden | {n} Prüfungen bestanden",
+      "attentionCount": "{n} Prüfungen brauchen Aufmerksamkeit",
+      "support": "Details für den Support",
+      "supportHelp": "Was die Regelung misst und gelernt hat. Hilfreich, wenn etwas nicht stimmt.",
+      "writesValue": "{n} ({h} pro Stunde)",
+      "unknownCar": "Auto unbekannt",
+      "ranNow": "gerade geprüft",
+      "notesCount": "{n} Hinweis | {n} Hinweise",
+      "rampUp": "Anstieg",
+      "handedOutHelp": "Kann den Anteil übersteigen, während ein Auto einen Burst fährt.",
+      "disagreementsHelp": "Messungen, bei denen die Autos mehr beanspruchten, als der Zähler maß. Der Zähler gilt.",
+      "controlHelp": "Was die Regelung in dieser Sitzung entschieden und getan hat.",
+      "entryOffsetNow": "Einstiegsversatz aktiv"
     },
     "order": {
       "title": "Ladereihenfolge",
-      "hint": "Ziehen zum Sortieren · höchste Priorität zuerst",
+      "hint": "Ziehen oder Priorität setzen",
       "share": "Gleich teilen",
       "sharing": "Teilen gleich",
       "up": "{name} nach oben",
@@ -1675,18 +1781,85 @@
       "drag": "{name} ziehen, um die Reihenfolge zu ändern",
       "prio": "Prio",
       "prioTitle": "Priorität {n}",
-      "place1": "lädt zuerst",
-      "place2": "lädt als zweites",
-      "place3": "lädt als drittes",
-      "place4": "lädt als viertes",
-      "later": "lädt später",
-      "shares": "teilt gleichmäßig",
-      "failed": "Reihenfolge nicht gespeichert: {error}"
+      "place1": "Als Erstes dran",
+      "place2": "Als Zweites dran",
+      "place3": "Als Drittes dran",
+      "place4": "Als Viertes dran",
+      "later": "Später dran",
+      "shares": "Teilt sich den ersten Platz",
+      "failed": "Reihenfolge nicht gespeichert: {error}",
+      "chargeFirst": "Zuerst laden",
+      "chargeFirstHelp": "Setzt dieses Auto nach oben: seine Priorität wird die höchste",
+      "lower": "Priorität von {name} senken",
+      "raise": "Priorität von {name} erhöhen",
+      "priority": "Priorität",
+      "priorityOf": "Priorität von {name}"
     },
     "home": {
       "line": "{kva} / {line} kVA",
-      "open": "Hauslast {kva} von {line} kVA, {phase}. Lastmanagement öffnen"
-    }
+      "open": "Hauslast {kva} von {line} kVA, {phase}. Lastmanagement öffnen",
+      "meterTitle": "Hauslast gegen die Auslösegrenze von {kva} kVA",
+      "label": "Gesamt",
+      "lineLong": "Auslösegrenze",
+      "lineShort": "Grenze",
+      "budget": "Sicherungsbudget {pct} % genutzt"
+    },
+    "import": {
+      "title": "Aus dem Add-on importieren",
+      "subtitle": "Abstimmung, Supercharge-Einstellungen und Gelerntes aus dem Supercharging-Add‑on",
+      "already": "Zuletzt importiert aus: {from}.",
+      "files": "Add-on-Dateien",
+      "filesHelp": "settings.json, options.json und learn.json aus dem Datenordner des Add-ons wählen. Jede Datei geht auch einzeln.",
+      "kind": {
+        "settings": "Abstimmung",
+        "options": "Installation",
+        "learned": "Gelerntes Verhalten",
+        "unknown": "keine Add-on-Datei, ignoriert | keine Add-on-Dateien, ignoriert"
+      },
+      "mapTitle": "Ladepunkte",
+      "mapHelp": "Welcher evcc-Ladepunkt jeder Add-on-Ladepunkt war.",
+      "skip": "Nicht importieren",
+      "run": "Importieren",
+      "replaces": "Ersetzt die aktuelle Abstimmung und das Gelernte.",
+      "done": "{what} übernommen. Das Lastmanagement nutzt sie ab jetzt.",
+      "again": "Erneut importieren",
+      "apply": "{what} übernehmen",
+      "changes": "Was sich ändert",
+      "learnedPairs": "Gelerntes Verhalten für {n} Auto wird ersetzt. | Gelerntes Verhalten für {n} Autos wird ersetzt.",
+      "noChanges": "Keine Einstellung weicht von evcc ab.",
+      "nothing": "{files}: keine Add-on-Datei. Wähle settings.json, options.json oder learn.json.",
+      "other": "Andere Dateien wählen",
+      "read": "{files} gelesen.",
+      "runtime": "Supercharge für {names} wieder einschalten, wie im Add-on",
+      "same": "{n} weiterer Wert ist in beiden gleich. | {n} weitere Werte sind in beiden gleich.",
+      "to": "auf",
+      "step": {
+        "files": "Dateien",
+        "review": "Prüfen",
+        "done": "Fertig"
+      },
+      "stepOf": "Schritt {n} von {total}: {name}",
+      "choose": "Dateien wählen",
+      "nChanges": "{n} Änderung | {n} Änderungen",
+      "nPairs": "gelerntes Verhalten für {n} Auto | gelerntes Verhalten für {n} Autos",
+      "and": "und",
+      "addonLoadpoint": "Add-on-Ladepunkt {n}",
+      "lineMove": "Das verschiebt die Auslösegrenze von {from} auf {to} kVA.",
+      "lineConfirm": "Auslösegrenze auf {to} kVA verschieben",
+      "addonNamed": "Add-on-Ladepunkt „{key}“"
+    },
+    "alert": {
+      "offTitle": "Lastmanagement ist aus",
+      "offText": "Nichts hält das Haus unter der Auslösegrenze. Stattdessen ist jeder Ladepunkt auf {a} A begrenzt.",
+      "offAction": "In den Einstellungen einschalten",
+      "blindTitle": "Der Zähler antwortet nicht",
+      "blindText": "Ohne Messwert werden die Autos zurückgehalten, damit die Sicherung nicht auslöst. Das Laden geht weiter, sobald der Zähler antwortet.",
+      "blindAction": "Zähler prüfen",
+      "checkTitle": "{name} braucht Aufmerksamkeit",
+      "checkAction": "Diagnose öffnen",
+      "errorTitle": "Letzter Fehler"
+    },
+    "close": "Schließen"
   },
   "log": {
     "areaLabel": "Nach Bereich filtern",

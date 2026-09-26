@@ -1234,7 +1234,7 @@
   "loadManagement": {
     "title": "Gestão de carga",
     "loading": "A aguardar dados da gestão de carga…",
-    "houseLoad": "Carga da casa",
+    "houseLoad": "Carga total",
     "cancel": "Cancelar",
     "tabs": {
       "overview": "Agora",
@@ -1246,39 +1246,47 @@
       "off": "Desligada",
       "standby": "Em espera",
       "blind": "Contador sem leitura",
-      "burst": "Supercarga",
-      "base": "A equilibrar"
+      "burst": "Em burst",
+      "base": "Abaixo da linha",
+      "attention": "Precisa de atenção",
+      "over": "Acima da linha",
+      "supercharge": "Em supercarga"
     },
     "status": {
       "off": "A gestão de carga está desligada. Nada mantém a casa abaixo da linha de não-disparo.",
       "notConfigured": "Nenhum contador configurado. Defina o endereço do contador nas Definições.",
       "standby": "Nada está a carregar. O equilíbrio começa sozinho assim que um carro quiser carregar.",
       "starting": "A iniciar, a primeira leitura do contador decide o que os carros podem ter.",
-      "burst": "Acima da linha de não-disparo de {line}, até {target}, enquanto durar o orçamento do pico.",
+      "burst": "Em burst: permitido até {target} enquanto houver orçamento do disjuntor.",
       "noCar": "Nenhum carro está a consumir, a casa tem os {line} só para si.",
-      "charging": "{name} a {amps} A",
+      "charging": "{name} pode puxar {amps} A",
       "stillDrawing": "{name} ainda a consumir {amps} A, pedido para parar",
-      "waiting": "{name} em espera (potência insuficiente para a sua prioridade)",
-      "under": "Abaixo da linha de {line}, sem risco de disparo.",
-      "over": "Acima da linha de {line} por {kva} kVA, a baixar."
+      "waiting": "{name} espera por potência",
+      "over": "Acima da linha por {kva} kVA, a baixar.",
+      "waitingMany": "{names} esperam por potência",
+      "waitingFor": "{name} espera por {first}",
+      "overSupercharge": "Acima da linha por {kva} kVA para a supercarga, dentro do orçamento do disjuntor."
     },
     "ledger": {
-      "line": "linha de não-disparo {kva} kVA",
-      "burst": "alvo de pico {kva} kVA",
-      "house": "Casa",
+      "line": "linha de não-disparo {kva} kVA",
+      "burst": "alvo de pico {kva} kVA",
+      "house": "Resto da casa",
       "free": "Livre",
       "over": "Acima da linha por",
       "noReading": "Ainda sem leitura do contador. A barra enche assim que o contador responder.",
-      "overclaim": "Os sensores dos carros indicam {kva} kVA mais do que o contador mede. O contador manda, por isso os carros são ajustados.",
-      "ofLine": "/ {kva} kVA"
+      "overclaim": "Os sensores dos carros indicam {kva} kVA mais do que o contador mede. O contador manda, por isso os carros são ajustados.",
+      "ofLine": "/ {kva} kVA",
+      "lineTitle": "Linha de não-disparo"
     },
     "patience": {
-      "title": "Paciência do contador gasta",
+      "title": "Orçamento do disjuntor",
       "clear": "0 % · contador a zero",
       "banked": "{pct} % · {s} s acumulados",
       "burstsStop": "picos param aos {pct} %",
       "opens": "100 % · disjuntor dispara",
-      "opensAt": "o disjuntor dispara aos 100 %"
+      "opensAt": "o disjuntor dispara aos 100 %",
+      "explain": "usado agora · dispara a 100 %",
+      "tick": "A marca é onde este burst termina."
     },
     "supercharge": {
       "label": "Supercarga",
@@ -1287,41 +1295,78 @@
       "onUntil": "{name} até às {time}",
       "onForever": "{name} indefinidamente",
       "stoodDown": "A supercarga desligou-se sozinha ({reason}). Desligue e ligue de novo para tentar outra vez.",
-      "until": "até às {time}",
-      "hours": "+{h} h",
+      "until": "até {time}",
+      "hours": "+{h} hora | +{h} horas",
       "indefinitely": "Indefinidamente",
       "indefinitelyShort": "indefinidamente",
-      "changeTime": "Alterar quando a supercarga termina",
-      "modalTitle": "Supercarga {name}",
-      "modalDescription": "Picos curtos acima da linha de não-disparo, dimensionados pela curva de disparo do contador. Depois o equilíbrio continua. Até quando?",
+      "changeTime": "Mudar o fim, ou parar",
+      "modalTitle": "Supercarga para {name}",
+      "modalDescription": "Carrega mais depressa em bursts curtos acima da linha de não-disparo, até à hora de fim.",
       "day": "Dia",
       "time": "Hora",
       "today": "Hoje",
       "tomorrow": "Amanhã",
-      "summaryUntil": "A supercarga desliga-se {time}.",
-      "summaryForever": "A supercarga fica ligada até a desligar.",
-      "inPast": "Essa hora já passou.",
+      "summaryUntil": "Termina {time}, daqui a {duration}.",
+      "summaryForever": "Fica ligado até o parares.",
+      "inPast": "Essa hora já passou. Escolhe uma hora mais tarde.",
       "save": "Supercarregar",
       "turnOff": "Desligar",
-      "custom": "Escolher hora",
       "noEnd": "Sem fim",
       "untilMorning": "Até às {time}",
-      "start": "Iniciar",
-      "apply": "Guardar"
+      "start": "Iniciar supercharge",
+      "apply": "Guardar",
+      "quickPicks": "Escolhas rápidas",
+      "hour": "Hora",
+      "minute": "Minuto",
+      "needsOn": "O Supercharge precisa da gestão de carga ligada",
+      "noEndSwitch": "Sem fim",
+      "paused": "Supercharge em pausa",
+      "pillNoEnd": "Supercharge, sem fim",
+      "pillUntil": "Supercharge até {time}",
+      "stopAt": "Até",
+      "stopNow": "Parar supercharge",
+      "tomorrowAt": "Amanhã {time}",
+      "todayLower": "hoje",
+      "tomorrowLower": "amanhã",
+      "untilShort": "Até {time}",
+      "activeTitle": "{name} em supercarga",
+      "activeDescription": "Escolhe um novo fim, ou desliga já.",
+      "active": "Em supercarga",
+      "noEndLower": "fica ligado",
+      "todayAt": "Hoje {time}",
+      "activeNoEnd": "Atualmente sem fim.",
+      "ahead": "{first} está à frente na ordem de carga, por isso {name} pode esperar.",
+      "pausedTitle": "Supercarga de {name} em pausa",
+      "daysHours": "{d} dia {h} h | {d} dias {h} h",
+      "activeWas": "Termina atualmente {time}.",
+      "nowFirst": "{name} carrega agora primeiro.",
+      "movedEarliest": "Movido para a hora mais cedo.",
+      "picksFromNow": "As escolhas rápidas contam a partir de agora.",
+      "aheadSupercharge": "{first} está à frente e em supercarga. Carregar primeiro pausa essa supercarga enquanto {name} carrega.",
+      "nowFirstPaused": "{name} carrega agora primeiro. A supercarga de {other} espera entretanto."
     },
     "reason": {
       "notConnected": "Não ligado",
       "stoodOff": "Tem corrente disponível e não a usa, em pausa durante {time}. A sua parte vai para o outro carro. Normalmente é o limite de carga do próprio carro.",
-      "notWanted": "Não está a carregar (modo, limite ou plano)",
+      "notWanted": "Não está a carregar agora",
       "disabled": "A gestão de carga está desligada",
       "standby": "A gestão de carga começa com o primeiro carregamento",
       "pausedDrawing": "Em pausa, mas ainda a consumir {amps} A, a pedir de novo para parar",
-      "paused": "Em pausa, potência insuficiente para a sua prioridade",
+      "paused": "À espera de potência",
       "comingUp": "A subir para a sua parte",
-      "measured": "{amps} A medidos",
+      "measured": "{amps} A medidos",
       "sensorSays": "(o sensor indica {amps})",
       "done": "termina por volta das {time} (em {duration})",
-      "nextChange": "próxima alteração em {s} s"
+      "nextChange": "próxima alteração em {s} s",
+      "bursting": "Em burst acima da linha",
+      "modeOff": "Modo desligado",
+      "atLimit": "Atingiu o limite de {soc} %",
+      "scStoodDown": "Supercarga suspensa: {reason}",
+      "scTooWarm": "Supercarga à espera: carregador demasiado quente",
+      "scNoRoom": "Supercarga à espera: sem margem para um burst agora",
+      "scRecovering": "Supercarga ligada, entre bursts",
+      "firstOther": "{name} carrega primeiro",
+      "noRoom": "Sem margem abaixo da linha"
     },
     "row": {
       "title": "Gestão de carga",
@@ -1329,26 +1374,10 @@
     },
     "card": {
       "allowed": "Permitido",
-      "paused": "Em pausa",
-      "shares": "Divide por igual",
-      "order": "Carrega em {n}.º",
-      "priority": "Prioridade",
-      "priorityDown": "Baixar prioridade",
-      "priorityUp": "Subir prioridade",
       "slowNote": "Este carregador reage devagar, por isso os seus picos terminam mais cedo e rendem menos.",
-      "car": "Carro",
-      "charge": "Carga",
-      "toGo": "Em falta",
-      "average": "Média",
-      "mode": "Modo",
-      "range": "Intervalo",
-      "measured": "Medido",
-      "pauses": "Pausas",
-      "src": {
-        "charger": "lido em direto do carregador",
-        "mqtt": "do seu feed MQTT",
-        "evcc": "do último ciclo do ponto de carga"
-      }
+      "whyBlind": "Contido, o contador não responde",
+      "whyBursting": "Em burst acima da linha",
+      "upTo": "até {a} A"
     },
     "stats": {
       "budget": "Corrente a dividir",
@@ -1360,33 +1389,38 @@
       "house": "Casa sem os carros",
       "ofLine": "{pct} % da linha",
       "houseHelp": "Leitura do contador menos o consumo dos carros.",
-      "average": "Média da sessão",
-      "vsLine": "{pct} % face à linha",
+      "average": "Média",
       "averageHelp": "Potência aparente média desde que o equilíbrio começou.",
-      "bursts": "Picos",
+      "bursts": "Bursts",
       "lastChanges": "o último usou {n} alterações de corrente",
       "burstsHelp": "Picos nesta sessão. Um pico limpo custa duas alterações de corrente.",
       "pauses": "Operações do contactor",
-      "pausesHelp": "Pausas nesta sessão. Cada uma é uma operação mecânica no carregador.",
+      "pausesHelp": "Vezes que um carro foi pausado nesta sessão. Cada pausa comuta um contactor no carregador.",
       "commands": "Comandos de corrente",
       "commandsHelp": "Alterações de corrente enviadas nesta sessão.",
       "window": "Janela de pico",
-      "windowHelp": "Quanto tempo um pico pode durar no alvo e ainda sobreviver a um salto de consumo da casa."
+      "windowHelp": "Quanto tempo um pico pode durar no alvo e ainda sobreviver a um salto de consumo da casa.",
+      "history": "nesta sessão · histórico",
+      "thisSession": "esta sessão ·",
+      "historyLink": "histórico",
+      "aboveLine": "{pct} % acima da linha",
+      "belowLine": "{pct} % abaixo da linha",
+      "atLine": "na linha"
     },
     "settings": {
       "general": "Instalação",
       "enabled": "Gestão de carga da casa",
-      "enabledHelp": "Mantém a casa abaixo da linha de não-disparo e divide a potência pela prioridade dos pontos de carga. Desligada, nada o faz.",
+      "enabledHelp": "Mantém a casa abaixo da linha de não-disparo e reparte a potência pela ordem de carregamento. Desligada, cada ponto de carga fica limitado.",
       "meterUri": "Endereço do contador",
       "meterUriHelp": "Canal do Shelly EM, p. ex. http://192.168.1.10/emeter/0. Lido diretamente uma vez por segundo durante o equilíbrio.",
       "saved": "Guardado",
       "clamped": "Limitado a {value}",
       "normalised": "Guardado como {value}",
       "loadpoints": "Pontos de carga",
-      "loadpointsHelp": "Como cada carregador é medido. Prioridades, correntes e modos são definições do próprio ponto de carga.",
+      "loadpointsHelp": "Como cada carregador é medido. Corrente e modo definem-se no próprio ponto de carga, a ordem de carregamento no",
       "fast": "Carregador rápido",
-      "fastHelp": "O carregador reage em cerca de um segundo e a sua corrente pode ser lida a cada segundo (p. ex. por MQTT).",
-      "measureTopic": "Feed de corrente (MQTT)",
+      "fastHelp": "Ligue para carregadores que reagem em menos de um segundo e reportam a corrente a cada segundo. Os bursts podem durar mais.",
+      "measureTopic": "Feed de corrente",
       "measureTopicHelp": "Tópico opcional com a corrente deste carro, p. ex. teslamate/cars/1/charger_actual_current.",
       "measureUnit": "Unidade",
       "tempTopic": "Temperatura do carregador (MQTT)",
@@ -1397,20 +1431,20 @@
         "expected": "Potência média esperada",
         "gain": "face à linha de não-disparo",
         "window": "Janela de pico",
-        "budget": "Orçamento de proximidade por pico"
+        "budget": "Orçamento por burst"
       },
       "groups": {
         "burst": {
-          "title": "Supercarga",
-          "subtitle": "O tamanho de um pico e o que tem de aguentar"
+          "title": "Tamanho do burst",
+          "subtitle": "Tamanho de um burst e a margem que deixa"
         },
         "control": {
-          "title": "Controlo",
-          "subtitle": "Quando um pico desiste e quão depressa o ciclo corrige"
+          "title": "Ritmo e correntes",
+          "subtitle": "Quando um burst desiste e quão depressa a corrente muda"
         },
         "thrift": {
-          "title": "Poupança do contactor e salvaguardas",
-          "subtitle": "Aguentar quebras, e o que acontece quando o contador se cala"
+          "title": "Pausas e segurança",
+          "subtitle": "Aguentar quebras e o que acontece quando o contador não responde"
         }
       },
       "fields": {
@@ -1423,12 +1457,12 @@
           "help": "Potência aparente contratada."
         },
         "k": {
-          "label": "Fator de não-disparo k",
-          "help": "O contador nunca dispara a ou abaixo de k × potência contratada (1,2 por omissão)."
+          "label": "Fator de não-disparo",
+          "help": "O contador nunca dispara até este múltiplo da potência contratada."
         },
         "q": {
-          "label": "Curva de disparo Q",
-          "help": "Constante de atraso da curva do contador Tdisp = Q / (S/SC − k)."
+          "label": "Tolerância a sobrecarga",
+          "help": "Quanto tempo o contador tolera sobrecarga acima da linha. Mais alto tolera mais tempo."
         },
         "burstKva": {
           "label": "Alvo do pico",
@@ -1436,35 +1470,35 @@
         },
         "bumpKva": {
           "label": "Margem de consumo da casa",
-          "help": "Um salto súbito de consumo que o pico tem de aguentar no pior momento."
+          "help": "Uma carga súbita da casa que um burst tem de aguentar."
         },
         "marginS": {
           "label": "Margem de reação",
-          "help": "Segundos que sobram para reagir depois desse salto. Menos significa picos mais longos e menos margem."
+          "help": "Tempo para reagir depois dessa carga. Menos dá bursts mais longos e menos margem."
         },
         "resetS": {
-          "label": "Tempo de arrefecimento",
+          "label": "Pausa entre bursts",
           "help": "Quanto tempo a casa tem de estar abaixo da linha antes do próximo pico."
         },
         "baseMarginKva": {
-          "label": "Margem de segurança base",
+          "label": "Margem da gestão",
           "help": "Quanto abaixo da linha de não-disparo o equilíbrio aponta."
         },
         "exitLeadFrac": {
-          "label": "Antecipação da saída",
-          "help": "Fração do tempo de descida pela qual a saída do pico é antecipada."
+          "label": "Terminar bursts mais cedo em",
+          "help": "Fração do tempo de descida em que um burst recua mais cedo."
         },
         "maxTempC": {
           "label": "Sem picos acima de",
           "help": "Temperatura do carregador acima da qual os picos param. O equilíbrio continua."
         },
         "maxCloseness": {
-          "label": "Abortar à proximidade",
-          "help": "Aborto forçado de um pico quando esta fração da paciência do contador é gasta."
+          "label": "Abortar um burst aos",
+          "help": "Orçamento do disjuntor usado que termina um burst de imediato."
         },
         "trimMaxA": {
-          "label": "Limite da correção de entrega",
-          "help": "Maior correção que a correção de entrega pode aplicar. 0 desativa."
+          "label": "Limite de correção",
+          "help": "Maior correção para carros abaixo ou acima do valor pedido. 0 desliga."
         },
         "ampMin": {
           "label": "Corrente mínima de recurso",
@@ -1475,47 +1509,47 @@
           "help": "Usada só quando um ponto de carga não indica máximo."
         },
         "raiseTable": {
-          "label": "Cadência de subida",
-          "help": "Linhas amperes:segundos, quanto tempo uma subida tem de estar pendente antes de ser enviada."
+          "label": "Ritmo a subir",
+          "help": "Quanto espera uma subida de pelo menos estes amperes antes de ser enviada."
         },
         "reduceTable": {
-          "label": "Cadência de descida",
-          "help": "Linhas amperes:segundos para descidas. Emergências nunca esperam."
+          "label": "Ritmo a descer",
+          "help": "O mesmo para descidas. Emergências nunca esperam."
         },
         "floorDwellS": {
-          "label": "Manter no mínimo durante",
-          "help": "Uma quebra abaixo do mínimo de um carro é aguentada este tempo antes de o pausar."
+          "label": "Aguentar uma quebra durante",
+          "help": "Tempo abaixo do mínimo de um carro antes de o pausar."
         },
         "restartDwellS": {
           "label": "Esperar antes de retomar",
           "help": "Depois de uma pausa, esperar pelo menos este tempo antes de retomar o carro."
         },
         "baseAbortCloseness": {
-          "label": "Reduzir à proximidade",
-          "help": "No equilíbrio, todos os carros vão ao mínimo a esta proximidade."
+          "label": "Carros ao mínimo aos",
+          "help": "Orçamento do disjuntor usado, durante a gestão."
         },
         "baseStopCloseness": {
-          "label": "Parar à proximidade",
-          "help": "No equilíbrio, todos os carros param a esta proximidade."
+          "label": "Parar todos os carros aos",
+          "help": "Orçamento do disjuntor usado, durante a gestão."
         },
         "baseTiAbortS": {
-          "label": "Segundos acumulados antes de reduzir",
-          "help": "Segundos acima da linha no equilíbrio antes de todos os carros irem ao mínimo."
+          "label": "Tempo acima da linha até ao mínimo",
+          "help": "Na gestão, todos os carros vão ao mínimo após este tempo acima da linha."
         },
         "baseTiStopS": {
-          "label": "Segundos acumulados antes de parar",
-          "help": "Segundos acima da linha no equilíbrio antes de todos os carros pararem."
+          "label": "Tempo acima da linha até parar",
+          "help": "Na gestão, todos os carros param após este tempo acima da linha."
         },
         "blindHoldPolls": {
-          "label": "Leituras falhadas antes de manter",
+          "label": "Conter carros após leituras falhadas",
           "help": "Leituras do contador falhadas antes de os carros ficarem no mínimo."
         },
         "blindPolls": {
-          "label": "Leituras falhadas antes de parar",
-          "help": "Leituras do contador falhadas antes de aplicar a ação sem leitura."
+          "label": "Agir após leituras falhadas",
+          "help": "Leituras falhadas antes de a ação abaixo se aplicar."
         },
         "blindAction": {
-          "label": "Quando o contador continua sem leitura",
+          "label": "Quando o contador não responde",
           "help": "Parar todos os carros, ou manter um a carregar com corrente fixa.",
           "options": {
             "stop": "Parar de carregar",
@@ -1523,54 +1557,100 @@
           }
         },
         "blindHoldA": {
-          "label": "Corrente a manter sem leitura",
-          "help": "Corrente do único carro que continua a carregar enquanto o contador está sem leitura."
+          "label": "Corrente do carro que continua",
+          "help": "Só quando um carro continua a carregar com o contador calado."
         }
       },
       "locked": "Só leitura. Inicie sessão como admin para alterar estas definições.",
       "login": "Iniciar sessão",
       "onThisPage": "Nesta página",
-      "instant": "Cada alteração aplica-se em menos de um segundo. Sem reiniciar, sem botão de guardar."
+      "instant": "Cada alteração aplica-se em menos de um segundo. Sem reiniciar, sem botão de guardar.",
+      "default": "Predefinição {value}.",
+      "range": "Intervalo de {min} a {max}{unit}.",
+      "resetTo": "Repor {value}",
+      "feedAge": "Último valor há {s} s",
+      "feedNone": "Ainda nenhum valor recebido",
+      "line": "Linha de não-disparo",
+      "lineHelp": "Potência contratada vezes o fator. A gestão fica abaixo; os bursts passam por cima brevemente.",
+      "lineConfirm": "Isto põe a linha de não-disparo em {kva} kVA (agora {now} kVA). Aplique só se o seu contrato mudou.",
+      "lineApply": "Aplicar {kva} kVA",
+      "lineUndo": "Manter {kva} kVA",
+      "orderLink": "separador Agora.",
+      "pacing": {
+        "add": "Adicionar linha",
+        "amps": "Pelo menos",
+        "seconds": "Espera",
+        "ampsRow": "Linha {n}, amperes",
+        "secondsRow": "Linha {n}, segundos",
+        "remove": "Remover",
+        "removeRow": "Remover linha {n}",
+        "reset": "Repor para {v}",
+        "undo": "Anular",
+        "resetDefault": "Repor o predefinido",
+        "invalid": "Os amperes têm de ser acima de 0 e os segundos 0 ou mais.",
+        "draft": "Nova linha: guardada quando ambos os campos tiverem valor."
+      },
+      "example": "p. ex. {v}",
+      "offConfirm": "Desligar a gestão de carga? Cada ponto de carga fica limitado a {a} A e os bursts param.",
+      "offKeep": "Manter ligada",
+      "offApply": "Desligar",
+      "outOfRange": "{value} está fora de {min} a {max}{unit}. Mantido {kept}.",
+      "measureTopicShort": "Tópico MQTT opcional com a corrente deste carro, p. ex. do TeslaMate.",
+      "maxTopicShort": "Tópico opcional com a corrente máxima que o carro aceita agora.",
+      "tempTopicShort": "Tópico opcional com a temperatura do carregador em °C.",
+      "notSet": "Não definido",
+      "unitReadings": "leituras",
+      "fastOf": "Carregador rápido {name}",
+      "undoWas": "Anular (era {value})"
     },
     "bursts": {
       "title": "Histórico de picos",
       "count": "{n} picos",
       "refresh": "Atualizar",
-      "none": "Ainda sem picos.",
+      "none": "Ainda sem bursts",
       "at": "Hora",
       "loadpoint": "Ponto de carga",
       "lasted": "Durou",
       "peak": "Máximo",
-      "closeness": "Proximidade",
-      "changes": "Alterações",
-      "exit": "Terminou por",
-      "help": "Um pico limpo custa duas alterações de corrente e termina no prazo. Tudo o resto merece atenção.",
+      "closeness": "Orçamento do disjuntor",
+      "exit": "Resultado",
       "exits": {
         "deadline": {
-          "label": "Prazo",
+          "label": "Correu como previsto",
           "help": "Gastou o orçamento previsto e voltou a descer. Nada correu mal."
         },
         "bump_margin": {
-          "label": "Margem de salto",
+          "label": "Carga da casa subiu",
           "help": "A potência medida ficou acima do previsto para o pico."
         },
         "closeness": {
-          "label": "Aborto por proximidade",
-          "help": "Aborto forçado: a proximidade passou o teto."
+          "label": "Limite do orçamento",
+          "help": "Aborto forçado: o orçamento do disjuntor passou o limite."
         },
         "meter_blind": {
-          "label": "Contador sem leitura",
+          "label": "Contador calado",
           "help": "O contador deixou de responder."
         },
         "no_draw": {
-          "label": "Sem consumo",
+          "label": "Carro não aceitou corrente",
           "help": "O carro nunca pegou na corrente."
         },
         "icp_alarm": {
-          "label": "Alarme ICP",
+          "label": "Alarme do disjuntor",
           "help": "Um alarme independente assim o indicou."
         }
-      }
+      },
+      "noneHelp": "Ligue o Supercharge de um carro no ecrã principal ou no separador Agora. Cada burst aparece aqui com o seu fim.",
+      "older": "Mostrar mais antigos",
+      "showing": "{n} de {total}",
+      "newOnes": "{n} burst novo, mostrar | {n} bursts novos, mostrar",
+      "chipCount": "burst | bursts",
+      "chipAverage": "em média",
+      "chipPeak": "pico do orçamento do disjuntor",
+      "chipEarly": "terminaram cedo",
+      "showingEarly": "A mostrar {n} de {total} terminados cedo",
+      "stackLine": "{s} · pico {kva} · orçamento {pct}",
+      "showingKept": "{n} de {total}. Só os últimos {total} bursts são guardados."
     },
     "diagnostics": {
       "selftest": "Autoteste",
@@ -1578,7 +1658,7 @@
       "download": "Descarregar diagnóstico",
       "notRun": "O autoteste corre sozinho pouco depois do arranque.",
       "failed": "{n} falharam · {when}",
-      "passed": "passou · {when}",
+      "passed": "Passou · {when}",
       "sensors": "Sensores",
       "sensorsHelp": "O contador manda. As leituras dos carros são indicações de parte dele e são reduzidas quando somam mais.",
       "meter": "Contador",
@@ -1588,14 +1668,14 @@
       "latency": "Latência do contador",
       "floor": "Mínimo da casa",
       "floorHelp": "O mínimo que se assume que a casa consome, aprendido de leituras em repouso.",
-      "claim": "Carros indicado / creditado",
+      "claim": "Leituras dos carros usadas",
       "claimHelp": "O que os sensores dos carros indicaram face ao que o contador permitiu.",
       "disagreements": "Desacordos com o contador",
       "sourceOhm": "Resistência da alimentação",
       "sourceOhmHelp": "Aprendida dos picos: quanto a tensão cai com carga.",
       "voltsAtGoal": "Tensão no alvo do pico",
       "temp": "Temperatura do carregador",
-      "peak": "Pior proximidade",
+      "peak": "Maior orçamento do disjuntor usado",
       "peakBlind": "Atingida com o contador sem leitura, é uma suposição e não uma medição.",
       "learned": "Comportamento aprendido",
       "learnedHelp": "Medido por carregador e carro, propositadamente pessimista. Nada é usado antes de quatro observações.",
@@ -1604,11 +1684,37 @@
       "rampDown": "Descida",
       "latencyDown": "Latência de descida",
       "latencyUp": "Latência de subida",
-      "entryOffset": "Correção de entrada"
+      "entryOffset": "Correção de entrada",
+      "control": "Controlo",
+      "polling": "Leitura do contador",
+      "pollModes": {
+        "standby": "Em espera",
+        "active": "A cada segundo",
+        "idle": "Inativo"
+      },
+      "handedOut": "Atribuído",
+      "writes": "Comandos de corrente",
+      "blind": "Leituras falhadas",
+      "checkSettings": "Verificar nas Definições",
+      "entryOffsetHelp": "Excesso aprendido no início de um burst.",
+      "blindHelp": "Leituras do contador falhadas seguidas agora. Os carros são travados após o número definido em Pausas e segurança.",
+      "passedCount": "{n} verificação passou | {n} verificações passaram",
+      "attentionCount": "{n} verificações precisam de atenção",
+      "support": "Detalhes para suporte",
+      "supportHelp": "O que a gestão mede e aprendeu. Útil quando algo parece errado.",
+      "writesValue": "{n} ({h} por hora)",
+      "unknownCar": "carro desconhecido",
+      "ranNow": "verificado agora mesmo",
+      "notesCount": "{n} nota | {n} notas",
+      "rampUp": "Subida",
+      "handedOutHelp": "Pode exceder a quota enquanto um carro faz um burst.",
+      "disagreementsHelp": "Leituras em que os carros declararam mais do que o contador mediu. O contador manda.",
+      "controlHelp": "O que o controlo decidiu e fez nesta sessão.",
+      "entryOffsetNow": "Desvio de entrada em uso"
     },
     "order": {
       "title": "Ordem de carregamento",
-      "hint": "Arraste para reordenar · maior prioridade primeiro",
+      "hint": "Arraste ou defina a prioridade",
       "share": "Partilhar igualmente",
       "sharing": "A partilhar igualmente",
       "up": "Subir {name}",
@@ -1616,18 +1722,85 @@
       "drag": "Arraste {name} para mudar a ordem",
       "prio": "Prio",
       "prioTitle": "Prioridade {n}",
-      "place1": "carrega primeiro",
-      "place2": "carrega em segundo",
-      "place3": "carrega em terceiro",
-      "place4": "carrega em quarto",
-      "later": "carrega depois",
-      "shares": "partilha igualmente",
-      "failed": "Não foi possível guardar a ordem: {error}"
+      "place1": "Primeiro na fila",
+      "place2": "Segundo na fila",
+      "place3": "Terceiro na fila",
+      "place4": "Quarto na fila",
+      "later": "Mais tarde na fila",
+      "shares": "Partilha o primeiro lugar",
+      "failed": "Não foi possível guardar a ordem: {error}",
+      "chargeFirst": "Carregar primeiro",
+      "chargeFirstHelp": "Põe este carro no topo: a prioridade passa a ser a mais alta",
+      "lower": "Baixar a prioridade de {name}",
+      "raise": "Subir a prioridade de {name}",
+      "priority": "Prioridade",
+      "priorityOf": "Prioridade de {name}"
     },
     "home": {
       "line": "{kva} / {line} kVA",
-      "open": "Carga da casa {kva} de {line} kVA, {phase}. Abrir gestão de carga"
-    }
+      "open": "Carga da casa {kva} de {line} kVA, {phase}. Abrir gestão de carga",
+      "meterTitle": "Carga da casa face à linha de não-disparo de {kva} kVA",
+      "label": "Total",
+      "lineLong": "linha de não-disparo",
+      "lineShort": "linha",
+      "budget": "Orçamento do disjuntor {pct} % usado"
+    },
+    "import": {
+      "title": "Importar do add-on",
+      "subtitle": "Afinação, definições de supercharge e comportamento aprendido do add‑on Supercharging",
+      "already": "Última importação de: {from}.",
+      "files": "Ficheiros do add-on",
+      "filesHelp": "Escolha settings.json, options.json e learn.json da pasta de dados do add-on. Cada um também funciona sozinho.",
+      "kind": {
+        "settings": "afinação",
+        "options": "instalação",
+        "learned": "comportamento aprendido",
+        "unknown": "não é um ficheiro do add-on, ignorado | não são ficheiros do add-on, ignorados"
+      },
+      "mapTitle": "Pontos de carga",
+      "mapHelp": "Que ponto de carga do evcc era cada ponto de carga do add-on.",
+      "skip": "Não importar",
+      "run": "Importar",
+      "replaces": "Substitui a afinação atual e o comportamento aprendido.",
+      "done": "Aplicado: {what}. A gestão de carga usa-os a partir de agora.",
+      "again": "Importar de novo",
+      "apply": "Aplicar {what}",
+      "changes": "O que muda",
+      "learnedPairs": "O comportamento aprendido de {n} carro é substituído. | O comportamento aprendido de {n} carros é substituído.",
+      "noChanges": "Nenhuma definição difere do que o evcc já usa.",
+      "nothing": "{files}: não é um ficheiro do add-on. Escolhe settings.json, options.json ou learn.json.",
+      "other": "Escolher outros ficheiros",
+      "read": "Lidos: {files}.",
+      "runtime": "Voltar a ligar a supercarga para {names}, como no add-on",
+      "same": "{n} outro valor é igual em ambos. | {n} outros valores são iguais em ambos.",
+      "to": "para",
+      "step": {
+        "files": "Ficheiros",
+        "review": "Rever",
+        "done": "Concluído"
+      },
+      "stepOf": "Passo {n} de {total}: {name}",
+      "choose": "Escolher ficheiros",
+      "nChanges": "{n} alteração | {n} alterações",
+      "nPairs": "comportamento aprendido de {n} carro | comportamento aprendido de {n} carros",
+      "and": "e",
+      "addonLoadpoint": "Ponto de carga {n} do add-on",
+      "lineMove": "Isto move a linha de não-disparo de {from} para {to} kVA.",
+      "lineConfirm": "Mover a linha de não-disparo para {to} kVA",
+      "addonNamed": "Ponto de carga do add-on “{key}”"
+    },
+    "alert": {
+      "offTitle": "A gestão de carga está desligada",
+      "offText": "Nada mantém a casa abaixo da linha de não-disparo. Cada ponto de carga fica limitado a {a} A.",
+      "offAction": "Ligar nas Definições",
+      "blindTitle": "O contador não responde",
+      "blindText": "Sem leitura, os carros são contidos para o disjuntor não disparar. O carregamento retoma sozinho quando o contador responder.",
+      "blindAction": "Verificar o contador",
+      "checkTitle": "{name} precisa de atenção",
+      "checkAction": "Abrir Diagnóstico",
+      "errorTitle": "Último erro"
+    },
+    "close": "Fechar"
   },
   "log": {
     "areaLabel": "Filtrar por área",
