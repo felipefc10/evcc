@@ -22,19 +22,19 @@
 				@change="pick"
 			/>
 		</div>
-		<div v-if="pending" class="line-confirm mb-3" role="alert" data-testid="load-import-confirm">
-			<span class="confirm-text">{{
-				$t("loadManagement.backup.confirm", { file: pending.name })
-			}}</span>
-			<span class="confirm-actions">
-				<button type="button" class="btn btn-outline-secondary" @click="cancel">
-					{{ $t("loadManagement.cancel") }}
-				</button>
-				<button type="button" class="btn btn-danger" @click="importFile">
-					{{ $t("loadManagement.backup.replace") }}
-				</button>
-			</span>
-		</div>
+		<LineConfirm
+			v-if="pending"
+			class="mb-3"
+			:text="$t('loadManagement.backup.confirm', { file: pending.name })"
+			data-testid="load-import-confirm"
+		>
+			<button type="button" class="btn btn-outline-secondary" @click="cancel">
+				{{ $t("loadManagement.cancel") }}
+			</button>
+			<button type="button" class="btn btn-danger" @click="importFile">
+				{{ $t("loadManagement.backup.replace") }}
+			</button>
+		</LineConfirm>
 		<div
 			v-if="result"
 			class="small"
@@ -49,9 +49,11 @@
 <script lang="ts">
 import { defineComponent } from "vue";
 import api from "@/api";
+import LineConfirm from "./LineConfirm.vue";
 
 export default defineComponent({
 	name: "LoadBackup",
+	components: { LineConfirm },
 	data() {
 		return {
 			pending: null as { name: string; data: unknown } | null,
@@ -107,26 +109,3 @@ export default defineComponent({
 	},
 });
 </script>
-
-<style scoped>
-.line-confirm {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	padding: 0.75rem 1rem;
-	border-radius: 1rem;
-	background: color-mix(in srgb, var(--evcc-orange) 12%, transparent);
-	font-size: 0.875rem;
-}
-.confirm-text {
-	flex: 1 1 100%;
-}
-.confirm-actions {
-	display: flex;
-	justify-content: flex-end;
-	align-items: center;
-	gap: 0.5rem;
-	margin-left: auto;
-}
-</style>

@@ -76,11 +76,6 @@ func (c Curve) Closeness(vaKVA, tiS float64) float64 {
 	return tiS / t
 }
 
-// BackCalculateQ recovers the real Q from a measured trip
-func (c Curve) BackCalculateQ(vaKVA, measuredTripS float64) float64 {
-	return measuredTripS * (vaKVA/c.SCkVA - c.K)
-}
-
 // ExpectedAverageKVA models the average power a burst duty cycle delivers
 func ExpectedAverageKVA(curve Curve, burstKVA, baseKVA, windowS, resetS, houseKVA float64,
 	ampMax, ampMin int, volts, carRamp, cmdLatency float64,

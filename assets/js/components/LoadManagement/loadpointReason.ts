@@ -1,4 +1,5 @@
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
+import { carAhead } from "./state";
 
 type T = (key: string, values?: Record<string, unknown>) => string;
 
@@ -11,9 +12,7 @@ export interface ReasonFormat {
 
 // Why a car held at 0 A waits: a car ahead of it in the order, or no room under the line.
 export function waitReason(lp: LoadLoadpoint, state: LoadState, t: T): string {
-  const ahead = (state.loadpoints || []).find(
-    (o) => o.index !== lp.index && o.priority > lp.priority && !o.paused && o.setpointA > 0
-  );
+  const ahead = carAhead(lp, state);
   return ahead
     ? t("loadManagement.reason.firstOther", { name: ahead.title })
     : t("loadManagement.reason.noRoom");

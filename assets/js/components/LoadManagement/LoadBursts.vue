@@ -142,16 +142,7 @@
 			<div
 				class="d-flex justify-content-between align-items-center gap-3 mt-3 small text-muted"
 			>
-				<span>{{
-					$t(
-						onlyEarly
-							? "loadManagement.bursts.showingEarly"
-							: rows.length >= KEPT
-								? "loadManagement.bursts.showingKept"
-								: "loadManagement.bursts.showing",
-						{ n: shown.length, total: rows.length }
-					)
-				}}</span>
+				<span>{{ showingText }}</span>
 				<button
 					v-if="shown.length < rows.length"
 					type="button"
@@ -201,8 +192,6 @@ export default defineComponent({
 			records: [] as BurstRecord[],
 			incoming: [] as BurstRecord[],
 			limit: PAGE,
-			PAGE,
-			KEPT,
 			onlyEarly: false,
 		};
 	},
@@ -224,25 +213,21 @@ export default defineComponent({
 					id: "n",
 					value: String(r.length),
 					label: this.$t("loadManagement.bursts.chipCount", r.length),
-					warn: false,
 				},
 				{
 					id: "s",
 					value: this.unit(avg, 0, "s"),
 					label: this.$t("loadManagement.bursts.chipAverage"),
-					warn: false,
 				},
 				{
 					id: "p",
 					value: this.unit(peak * 100, 0, "%"),
 					label: this.$t("loadManagement.bursts.chipPeak"),
-					warn: false,
 				},
 				{
 					id: "u",
 					value: String(early),
 					label: this.$t("loadManagement.bursts.chipEarly"),
-					warn: early > 0,
 				},
 			];
 		},
@@ -256,6 +241,15 @@ export default defineComponent({
 					label: this.$t(`loadManagement.bursts.exits.${k}.label`),
 					help: this.$t(`loadManagement.bursts.exits.${k}.help`),
 				}));
+		},
+		showingText(): string {
+			let key = "showing";
+			if (this.onlyEarly) key = "showingEarly";
+			else if (this.rows.length >= KEPT) key = "showingKept";
+			return this.$t(`loadManagement.bursts.${key}`, {
+				n: this.shown.length,
+				total: this.rows.length,
+			});
 		},
 		newCount(): number {
 			return Math.max(0, this.incoming.length - this.records.length);
@@ -372,7 +366,6 @@ export default defineComponent({
 }
 .chips {
 	align-items: center;
-	column-gap: 0.6rem;
 	display: flex;
 	flex-wrap: wrap;
 	gap: 0.5rem;

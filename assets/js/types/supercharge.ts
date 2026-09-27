@@ -214,3 +214,11 @@ export interface BurstRecord {
   at?: string;
   loadpointTitle?: string;
 }
+
+// what a supercharge pill hands the dialog when pressed
+export interface SuperchargeRequest {
+  index: number;
+  title: string;
+  active: boolean;
+  until: string | null;
+}

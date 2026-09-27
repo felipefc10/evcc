@@ -2,6 +2,7 @@ package supercharge
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strings"
@@ -17,7 +18,6 @@ const (
 	baselineTTLS          = 1800.0 // how long a measured idle-house reading stays evidence
 	motionA               = 0.4    // a reading moving more than this between samples is moving
 	motionSettleS         = 3.0    // a loadpoint is assumed moving this long after a command
-	warmupToFloors        = true   // the first allocation of a run is held to the floors
 	burstExitClearanceKVA = 0.05   // how far under the line a burst exit must land
 	burstExitMaxTrimA     = 2      // amps the exit may give up chasing that
 	maxSourceOhm          = 1.5    // largest supply resistance acted on
@@ -374,12 +374,6 @@ func (c *Controller) SetpointOf(key string) int {
 	return st.setpoint
 }
 
-// Paused reports whether the controller holds this loadpoint stopped
-func (c *Controller) Paused(key string) bool {
-	st, ok := c.lp[key]
-	return !ok || st.paused
-}
-
 // StoodOff returns the seconds of stand-down left for this loadpoint
 func (c *Controller) StoodOff(key string, now *float64) float64 {
 	t := c.lastT
@@ -651,22 +645,16 @@ func (c *Controller) budgetA(goalKVA float64, sm *Sample, clamp bool, extraA flo
 }
 
 func (c *Controller) offsetAllowed(extraA float64) float64 {
-	if extraA <= 0 {
+	if extraA <= 0 || !c.tooHot {
 		c.offsetApplied = extraA
 		c.Tel.EntryOffsetA = round(extraA, 2)
 		c.Tel.EntryOffsetHeld = false
 		return extraA
 	}
-	if c.tooHot {
-		c.offsetApplied = 0.0
-		c.Tel.EntryOffsetA = 0.0
-		c.Tel.EntryOffsetHeld = true
-		return 0.0
-	}
-	c.offsetApplied = extraA
-	c.Tel.EntryOffsetA = round(extraA, 2)
-	c.Tel.EntryOffsetHeld = false
-	return extraA
+	c.offsetApplied = 0.0
+	c.Tel.EntryOffsetA = 0.0
+	c.Tel.EntryOffsetHeld = true
+	return 0.0
 }
 
 func (c *Controller) anchorA(lp *LpSample, sm *Sample) float64 {
@@ -941,7 +929,8 @@ func (c *Controller) emitLp(lp *LpSample, want int, sm *Sample, o emitOpts) LpCo
 		if sm.T-st.lastStopT < s.RestartDwellS && !o.force {
 			return LpCommand{Key: lp.Key, Act: ActNone, Reason: "waiting to resume"}
 		}
-		if float64(target) < float64(floor)+restartHysteresisA && !o.force {
+		// a car asking for no more than its minimum (evcc's solar start) resumes without the spare amps
+		if float64(target) < math.Min(float64(floor)+restartHysteresisA, float64(ceiling)) && !o.force {
 			return LpCommand{Key: lp.Key, Act: ActNone, Reason: "not enough to resume"}
 		}
 		return c.setLp(lp, target, sm, "resuming", false)
@@ -1175,10 +1164,7 @@ func (c *Controller) bundle(cmds []LpCommand, reason string) Command {
 
 func (c *Controller) respond(sm *Sample, cmds []LpCommand, alloc map[string]int, reason string) Command {
 	if alloc != nil {
-		c.lastAlloc = make(map[string]int, len(alloc))
-		for k, v := range alloc {
-			c.lastAlloc[k] = v
-		}
+		c.lastAlloc = maps.Clone(alloc)
 	}
 	c.telemetry(sm, alloc)
 	return c.bundle(cmds, reason)
@@ -1394,7 +1380,11 @@ func (c *Controller) stepBase(sm *Sample) Command {
 	}
 
 	baseClose := cv.Closeness(sm.VaKVA, c.baseTi)
-	if baseClose >= s.BaseStopCloseness || c.baseTi >= s.BaseTiStopS {
+	// over the line while exporting, cars only bring the meter back: shedding them would push it further
+	if sm.Watts < 0 {
+		baseClose = 0
+	}
+	if baseClose >= s.BaseStopCloseness || (c.baseTi >= s.BaseTiStopS && sm.Watts >= 0) {
 		c.Tel.Note = fmt.Sprintf("BASELINE OVERSHOOT %.2f (%.0f s banked in this phase), stopping every loadpoint", baseClose, c.baseTi)
 		cmds := make([]LpCommand, 0, len(sm.Lps))
 		for i := range sm.Lps {
@@ -1402,7 +1392,7 @@ func (c *Controller) stepBase(sm *Sample) Command {
 		}
 		return c.respond(sm, cmds, nil, "baseline overshoot")
 	}
-	if baseClose >= s.BaseAbortCloseness || c.baseTi >= s.BaseTiAbortS {
+	if baseClose >= s.BaseAbortCloseness || (c.baseTi >= s.BaseTiAbortS && sm.Watts >= 0) {
 		c.Tel.Note = fmt.Sprintf("baseline overshoot %.2f (%.0f s banked in this phase), holding every loadpoint at its minimum", baseClose, c.baseTi)
 		cmds := make([]LpCommand, 0, len(sm.Lps))
 		for i := range sm.Lps {
@@ -1424,7 +1414,8 @@ func (c *Controller) stepBase(sm *Sample) Command {
 
 	alloc := c.allocate(goal, sm, nil, true, false)
 	warming := false
-	if warmupToFloors && !c.warmed {
+	// the first allocation of a run is held to the floors
+	if !c.warmed {
 		if sm.OK && sm.T-c.baseT0 >= s.ResetS {
 			c.warmed = true
 		} else {

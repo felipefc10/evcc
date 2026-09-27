@@ -126,6 +126,11 @@ export default defineComponent({
 .setting-feedback.bad {
 	color: var(--bs-danger);
 }
+/* the undo and reset links the rows put in the meta slot */
+:slotted(.reset) {
+	font-size: 0.75rem;
+	color: var(--evcc-default-text);
+}
 @media (max-width: 575px) {
 	.setting-row {
 		flex-direction: column;

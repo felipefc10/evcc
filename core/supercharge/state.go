@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
+	"slices"
 	"time"
 )
 
@@ -227,16 +229,7 @@ func (m *Manager) stateLocked() State {
 		}
 	}
 
-	for _, cfg := range c.Loadpoints {
-		if cfg.TempTopic != "" {
-			if v, ok := m.feed(cfg.TempTopic); ok && m.feedFresh(cfg.TempTopic, tempFreshS) {
-				if st.TempC == nil || v > *st.TempC {
-					vv := v
-					st.TempC = &vv
-				}
-			}
-		}
-	}
+	st.TempC = m.hottest(slices.Collect(maps.Values(c.Loadpoints)))
 	if !running && st.TempC != nil {
 		st.TempBlock = *st.TempC >= s.MaxTempC
 	}
@@ -254,7 +247,7 @@ func (m *Manager) stateLocked() State {
 		v := LpView{
 			Index: l.index, Name: l.name, Title: ls.Title, Vehicle: ls.Vehicle, Mode: ls.Mode,
 			Priority: ls.Priority, Connected: ls.Connected, Charging: ls.Charging,
-			Wants:   ls.Connected && ls.DemandA > 0 && ls.DemandA+1e-9 >= ls.MinA,
+			Wants:   ls.wants(),
 			DemandA: ls.DemandA, MinA: ls.MinA, MaxA: m.carMaxA(lc, ls), Phases: max(ls.Phases, 1),
 			Paused: true, Fast: lc.Fast, Soc: ls.Soc, LimitSoc: ls.LimitSoc,
 			Forecast: m.forecast(l, ls),
@@ -312,8 +305,7 @@ func (m *Manager) publishConfigLocked() {
 	if m.pub == nil {
 		return
 	}
-	cfg := m.cfg
-	cfg.Settings = m.cfg.Settings.Clone()
+	cfg := m.configLocked()
 	raw, err := json.Marshal(cfg)
 	if err != nil || string(raw) == m.lastConfig {
 		return
@@ -332,8 +324,7 @@ func (m *Manager) selftestAsync(delay time.Duration) {
 // Selftest checks every external dependency and publishes the result
 func (m *Manager) Selftest(ctx context.Context) []Check {
 	m.mu.Lock()
-	cfg := m.cfg
-	cfg.Settings = m.cfg.Settings.Clone()
+	cfg := m.configLocked()
 	lps := m.lps
 	meter := m.meter
 	unsupported := m.unsupported

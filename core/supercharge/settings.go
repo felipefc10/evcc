@@ -2,6 +2,7 @@ package supercharge
 
 import (
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -109,9 +110,7 @@ func (s *Settings) AnySupercharge() bool {
 func (s Settings) Clone() Settings {
 	res := s
 	res.Supercharge = make(map[string]int64, len(s.Supercharge))
-	for k, v := range s.Supercharge {
-		res.Supercharge[k] = v
-	}
+	maps.Copy(res.Supercharge, s.Supercharge)
 	return res
 }
 
@@ -202,12 +201,7 @@ func ParseCadence(text string) [][2]float64 {
 
 // parsePyFloat mimics python float() on trimmed text
 func parsePyFloat(s string) (float64, error) {
-	s = strings.TrimSpace(s)
-	f, err := strconv.ParseFloat(s, 64)
-	if err != nil {
-		return 0, err
-	}
-	return f, nil
+	return strconv.ParseFloat(strings.TrimSpace(s), 64)
 }
 
 // CadenceWait returns the minimum seconds since the correction appeared for a deltaA correction

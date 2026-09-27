@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"math"
 	"slices"
 	"strconv"
@@ -38,24 +39,31 @@ const (
 
 // LpState is what the manager reads from one loadpoint
 type LpState struct {
-	Title          string
-	Vehicle        string
-	Mode           string
-	Priority       int
-	Connected      bool
-	Charging       bool
-	Enabled        bool
-	DemandA        float64 // what the loadpoint's own mode logic asks for, 0 = not charging
-	MinA           float64
-	MaxA           float64
-	Phases         int
-	OfferedA       float64
-	ChargePowerW   float64
-	ChargeCurrents []float64
-	Soc            float64
-	LimitSoc       int
-	RemainingWh    float64
-	ChargedWh      float64
+	Title            string
+	Vehicle          string
+	Mode             string
+	Priority         int
+	Connected        bool
+	Charging         bool
+	Enabled          bool
+	DemandA          float64 // what the loadpoint's own mode logic asks for, 0 = not charging
+	MinA             float64
+	MaxA             float64
+	Phases           int
+	MeasuredPhases   int // phases seen carrying current, 0 until evcc has measured
+	ConfiguredPhases int // 0 automatic, 1 or 3
+	OfferedA         float64
+	ChargePowerW     float64
+	ChargeCurrents   []float64
+	Soc              float64
+	LimitSoc         int
+	RemainingWh      float64
+	ChargedWh        float64
+}
+
+// wants reports whether the loadpoint's own mode logic asks for a charge the car can take
+func (st LpState) wants() bool {
+	return st.Connected && st.DemandA > 0 && st.DemandA+1e-9 >= st.MinA
 }
 
 // Loadpoint is the loadpoint side of the integration
@@ -157,7 +165,6 @@ type managedLp struct {
 
 	mu        sync.Mutex
 	want      *int // latest setpoint to apply, nil when nothing is owed
-	applied   *int
 	failedAt  time.Time
 	failures  int
 	wake      chan struct{}
@@ -311,20 +318,18 @@ func (m *Manager) now() float64 {
 	return time.Since(m.start).Seconds()
 }
 
-// Enabled reports whether load management is switched on
-func (m *Manager) Enabled() bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	return m.cfg.Enabled
-}
-
 // Owns reports whether the control loop is balancing right now and answering.
 // While it does, it is the whole-house limit and evcc's own circuit limits step aside;
 // otherwise they keep holding the house as they would without load management.
 func (m *Manager) Owns() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return m.cfg.Enabled && m.armed && m.running && time.Since(m.heartbeat) <= heartbeatS*time.Second
+	return m.cfg.Enabled && m.armed && m.answeringLocked()
+}
+
+// answeringLocked reports whether the control loop runs and has stepped recently
+func (m *Manager) answeringLocked() bool {
+	return m.running && time.Since(m.heartbeat) <= heartbeatS*time.Second
 }
 
 // Clamp is called by a loadpoint for every current it is about to apply on its own cycle.
@@ -356,17 +361,11 @@ func (m *Manager) Clamp(name string, current, minA float64, enabled bool, offere
 		}
 		return hold()
 	}
-	if !m.running || time.Since(m.heartbeat) > heartbeatS*time.Second {
+	if !m.answeringLocked() {
 		// the loop is not (yet) answering: never more than the minimum
 		return math.Min(hold(), math.Max(minA, 0))
 	}
-	for _, l := range m.lps {
-		if l.name != name {
-			continue
-		}
-		if !l.commanded {
-			return hold()
-		}
+	if i := m.lpIndex(name); i >= 0 && m.lps[i].commanded {
 		return math.Min(current, float64(m.ctl.SetpointOf(name)))
 	}
 	return hold()
@@ -376,10 +375,7 @@ func (m *Manager) requestArm(why string) {
 	if m.armedWhy == "" {
 		m.armedWhy = why
 	}
-	select {
-	case m.wake <- struct{}{}:
-	default:
-	}
+	m.kick()
 }
 
 // Run is the manager loop. It returns when ctx is done.
@@ -433,10 +429,7 @@ func (m *Manager) standby(ctx context.Context) {
 		m.status = "load management is switched off"
 		return
 	}
-	states := make([]LpState, len(m.lps))
-	for i, l := range m.lps {
-		states[i] = l.lp.SuperchargeState()
-	}
+	states := m.lpStates()
 	if m.checkPhasesLocked(states) {
 		m.armedWhy = ""
 		m.status = m.unsupported
@@ -456,6 +449,15 @@ func (m *Manager) standby(ctx context.Context) {
 		m.armLocked(why)
 	}
 	m.status = "standby"
+}
+
+// lpStates reads every loadpoint, in site order
+func (m *Manager) lpStates() []LpState {
+	states := make([]LpState, len(m.lps))
+	for i, l := range m.lps {
+		states[i] = l.lp.SuperchargeState()
+	}
+	return states
 }
 
 func (m *Manager) armLocked(why string) {
@@ -493,8 +495,12 @@ func (m *Manager) scopeText() string {
 func (m *Manager) checkPhasesLocked(states []LpState) bool {
 	why := ""
 	for _, st := range states {
-		if st.Phases > 1 {
-			why = fmt.Sprintf("%s charges on %d phases: load management balances single-phase installations only, every loadpoint is held to the fail-safe limit", st.Title, st.Phases)
+		if st.ConfiguredPhases != 1 {
+			why = fmt.Sprintf("%s is not set to 1 phase: load management balances single-phase installations only, every loadpoint is held to the fail-safe limit until its phases are set to 1", st.Title)
+			break
+		}
+		if st.MeasuredPhases > 1 {
+			why = fmt.Sprintf("%s charges on %d phases: load management balances single-phase installations only, every loadpoint is held to the fail-safe limit", st.Title, st.MeasuredPhases)
 			break
 		}
 	}
@@ -591,34 +597,14 @@ func (m *Manager) step(ctx context.Context) {
 		pvKVA = math.Max(m.plant.PV(), 0) / 1000.0
 	}
 
-	states := make([]LpState, len(m.lps))
-	for i, l := range m.lps {
-		states[i] = l.lp.SuperchargeState()
-	}
-	// live charger currents, outside the lock: fast chargers every step, the others
-	// every slowReadS, since a reading from the loadpoint's own cycle is too old to steer by
+	states := m.lpStates()
 	m.mu.Lock()
 	cfgs := make([]LpConfig, len(m.lps))
 	for i, l := range m.lps {
 		cfgs[i] = m.cfg.Loadpoints[l.name]
 	}
 	m.mu.Unlock()
-	liveErr := make([]error, len(m.lps))
-	for i, l := range m.lps {
-		if cfgs[i].MeasureTopic != "" {
-			continue
-		}
-		if !cfgs[i].Fast && time.Since(l.liveAt) < slowReadS*time.Second {
-			continue
-		}
-		cur, err := l.lp.SuperchargeCurrents()
-		if err != nil {
-			liveErr[i] = err
-			l.liveOK = false
-			continue
-		}
-		l.live, l.liveAt, l.liveOK = sumCurrents(cur), time.Now(), true
-	}
+	liveErr := m.readLive(cfgs)
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -675,7 +661,7 @@ func (m *Manager) step(ctx context.Context) {
 			}
 		}
 
-		wants := st.Connected && st.DemandA > 0 && st.DemandA+1e-9 >= st.MinA
+		wants := st.wants()
 		minA := st.MinA * float64(phases)
 		maxA := m.carMaxA(c, st) * float64(phases)
 		if wants && st.DemandA > 0 {
@@ -698,16 +684,7 @@ func (m *Manager) step(ctx context.Context) {
 		m.noteDelivery(l, lps[len(lps)-1], volts, now)
 	}
 
-	var temp *float64
-	for _, c := range cfgs {
-		if c.TempTopic == "" || !m.feedFresh(c.TempTopic, tempFreshS) {
-			continue
-		}
-		if v, ok := m.feed(c.TempTopic); ok && (temp == nil || v > *temp) {
-			vv := v
-			temp = &vv
-		}
-	}
+	temp := m.hottest(cfgs)
 
 	ok := rd.OK && !blindCharger
 	blindWhy := ""
@@ -766,6 +743,40 @@ func (m *Manager) step(ctx context.Context) {
 		l.setWant(amps, c.Repeat)
 	}
 
+	m.noteOutcomeLocked(sm, lps, now)
+
+	m.addTrace(sm, cmd)
+	m.flushRecords(states)
+	m.status = tel.Note
+	m.publishLocked()
+}
+
+// readLive reads the charger currents outside the lock: fast chargers every step, the others
+// every slowReadS, since a reading from the loadpoint's own cycle is too old to steer by
+func (m *Manager) readLive(cfgs []LpConfig) []error {
+	liveErr := make([]error, len(m.lps))
+	for i, l := range m.lps {
+		if cfgs[i].MeasureTopic != "" {
+			continue
+		}
+		if !cfgs[i].Fast && time.Since(l.liveAt) < slowReadS*time.Second {
+			continue
+		}
+		cur, err := l.lp.SuperchargeCurrents()
+		if err != nil {
+			liveErr[i] = err
+			l.liveOK = false
+			continue
+		}
+		l.live, l.liveAt, l.liveOK = sumCurrents(cur), time.Now(), true
+	}
+	return liveErr
+}
+
+// noteOutcomeLocked logs what a step changed and decides whether to stay armed
+func (m *Manager) noteOutcomeLocked(sm *Sample, lps []LpSample, now float64) {
+	tel := m.ctl.Tel
+
 	// stand-downs
 	for _, l := range m.lps {
 		if until, ok := tel.StoodOff[l.name]; ok && until != l.standSaid {
@@ -815,11 +826,6 @@ func (m *Manager) step(ctx context.Context) {
 		m.log.INFO.Printf("%s -> %s, %.2f kVA, %s", orStart(m.lastPhase), tel.Phase, sm.VaKVA, strings.Join(parts, ", "))
 		m.lastPhase = tel.Phase
 	}
-
-	m.addTrace(sm, cmd)
-	m.flushRecords(states)
-	m.status = tel.Note
-	m.publishLocked()
 }
 
 func orStart(p Phase) string {
@@ -859,10 +865,7 @@ func (l *managedLp) setWant(amps int, repeat bool) {
 		l.failedAt = time.Time{}
 	}
 	l.mu.Unlock()
-	select {
-	case l.wake <- struct{}{}:
-	default:
-	}
+	notify(l.wake)
 }
 
 // actuator applies the latest setpoint to one loadpoint, off the control loop,
@@ -908,8 +911,6 @@ func (m *Manager) actuator(ctx context.Context, l *managedLp) {
 				m.log.WARN.Printf("loadpoint %d: applying %d A failed (%d times): %v", l.index+1, *want, l.failures, err)
 			}
 		} else if l.want != nil && *l.want == *want {
-			a := *want
-			l.applied = &a
 			l.want = nil
 			l.failures = 0
 			l.failedAt = time.Time{}
@@ -985,13 +986,7 @@ func (m *Manager) burstClockLocked() {
 	now := time.Now().Unix()
 	changed := false
 	for key, until := range s.Supercharge {
-		known := false
-		for _, l := range m.lps {
-			if l.name == key {
-				known = true
-			}
-		}
-		if len(m.lps) > 0 && !known {
+		if len(m.lps) > 0 && m.lpIndex(key) < 0 {
 			delete(s.Supercharge, key)
 			changed = true
 			continue
@@ -1007,11 +1002,14 @@ func (m *Manager) burstClockLocked() {
 	}
 }
 
+// lpIndex returns the position of the named loadpoint, -1 when unknown
+func (m *Manager) lpIndex(name string) int {
+	return slices.IndexFunc(m.lps, func(l *managedLp) bool { return l.name == name })
+}
+
 func (m *Manager) titleOf(name string) string {
-	for _, l := range m.lps {
-		if l.name == name {
-			return l.lp.SuperchargeState().Title
-		}
+	if i := m.lpIndex(name); i >= 0 {
+		return m.lps[i].lp.SuperchargeState().Title
 	}
 	return name
 }
@@ -1021,9 +1019,10 @@ func (m *Manager) flushRecords(states []LpState) {
 		rec := m.ctl.Records[0]
 		m.ctl.Records = m.ctl.Records[1:]
 		rec.At = time.Now().Format(time.RFC3339)
-		var titles []string
+		var keys, titles []string
 		for _, k := range strings.Split(rec.Loadpoint, ",") {
 			if k != "" {
+				keys = append(keys, k)
 				titles = append(titles, m.titleOf(k))
 			}
 		}
@@ -1058,12 +1057,6 @@ func (m *Manager) flushRecords(states []LpState) {
 		}
 
 		// entry learning
-		keys := []string{}
-		for _, k := range strings.Split(rec.Loadpoint, ",") {
-			if k != "" {
-				keys = append(keys, k)
-			}
-		}
 		if rec.SettledVaKVA > 0 && rec.SettledVolts > 0 && len(keys) == 1 {
 			errA := rec.EntryOffsetA + (rec.TargetKVA-rec.SettledVaKVA)*1000.0/rec.SettledVolts
 			m.learner.Entry(LearnKey(keys[0], m.vehicleOf(keys[0], states)), errA, m.titleOf(keys[0]))
@@ -1082,10 +1075,8 @@ func (m *Manager) flushRecords(states []LpState) {
 }
 
 func (m *Manager) vehicleOf(name string, states []LpState) string {
-	for i, l := range m.lps {
-		if l.name == name && i < len(states) {
-			return states[i].Vehicle
-		}
+	if i := m.lpIndex(name); i >= 0 && i < len(states) {
+		return states[i].Vehicle
 	}
 	return ""
 }
@@ -1207,6 +1198,20 @@ func (m *Manager) carMaxA(c LpConfig, st LpState) float64 {
 	return st.MaxA
 }
 
+// hottest returns the highest fresh charger temperature, nil when none is known
+func (m *Manager) hottest(cfgs []LpConfig) *float64 {
+	var temp *float64
+	for _, c := range cfgs {
+		if c.TempTopic == "" || !m.feedFresh(c.TempTopic, tempFreshS) {
+			continue
+		}
+		if v, ok := m.feed(c.TempTopic); ok && (temp == nil || v > *temp) {
+			temp = &v
+		}
+	}
+	return temp
+}
+
 func (m *Manager) feed(topic string) (float64, bool) {
 	m.feedsMu.Lock()
 	defer m.feedsMu.Unlock()
@@ -1234,25 +1239,26 @@ func (m *Manager) feedAge(topic string) *float64 {
 
 // ---------------------------------------------------------------- settings API
 
-// Settings returns a copy of the configuration
+// Config returns a copy of the configuration
 func (m *Manager) Config() Config {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.configLocked()
+}
+
+// configLocked returns a copy of the configuration that shares no maps with it
+func (m *Manager) configLocked() Config {
 	c := m.cfg
 	c.Settings = m.cfg.Settings.Clone()
 	c.Loadpoints = make(map[string]LpConfig, len(m.cfg.Loadpoints))
-	for k, v := range m.cfg.Loadpoints {
-		c.Loadpoints[k] = v
-	}
+	maps.Copy(c.Loadpoints, m.cfg.Loadpoints)
 	return c
 }
 
 // UpdateConfig merges a partial JSON document into the configuration and applies it at once
 func (m *Manager) UpdateConfig(patch []byte) (Config, error) {
 	m.mu.Lock()
-	cur := m.cfg
-	cur.Settings = m.cfg.Settings.Clone()
-	raw, err := json.Marshal(cur)
+	raw, err := json.Marshal(m.configLocked())
 	if err != nil {
 		m.mu.Unlock()
 		return Config{}, err
@@ -1278,7 +1284,7 @@ func (m *Manager) UpdateConfig(patch []byte) (Config, error) {
 		return Config{}, err
 	}
 	m.applyConfigLocked(next)
-	res := m.cfg
+	res := m.configLocked()
 	m.mu.Unlock()
 
 	m.applied()
@@ -1332,9 +1338,7 @@ func (m *Manager) Export() (Backup, error) {
 	if err != nil {
 		return Backup{}, err
 	}
-	cfg := m.cfg
-	cfg.Settings = m.cfg.Settings.Clone()
-	return Backup{Version: backupVersion, Config: cfg, Learned: learned, Bursts: slices.Clone(m.bursts)}, nil
+	return Backup{Version: backupVersion, Config: m.configLocked(), Learned: learned, Bursts: slices.Clone(m.bursts)}, nil
 }
 
 // Import replaces everything load management keeps with an export
@@ -1403,8 +1407,13 @@ func deepMerge(dst, src map[string]any) {
 }
 
 func (m *Manager) kick() {
+	notify(m.wake)
+}
+
+// notify wakes the receiver of ch without blocking
+func notify(ch chan struct{}) {
 	select {
-	case m.wake <- struct{}{}:
+	case ch <- struct{}{}:
 	default:
 	}
 }
@@ -1483,7 +1492,7 @@ func (m *Manager) Bursts() []BurstRecord {
 // Diagnostics returns everything worth sending back after a run
 func (m *Manager) Diagnostics() map[string]any {
 	m.mu.Lock()
-	cfg := m.cfg
+	cfg := m.configLocked()
 	cfg.MeterURI = redactHost(cfg.MeterURI)
 	res := map[string]any{
 		"at":       time.Now().Format(time.RFC3339),
