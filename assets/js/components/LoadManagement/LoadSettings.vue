@@ -399,10 +399,7 @@
 								<NumberRow
 									v-else
 									:field="f"
-									:disabled="
-										f.key === 'blindHoldA' &&
-										settingValue('blindAction') !== 'hold'
-									"
+									:disabled="unusedBlindField(f.key)"
 									:value="Number(settingValue(f.key))"
 									:feedback="feedback[f.key]"
 									@change="(v: number) => saveSetting(f.key, v)"
@@ -851,6 +848,11 @@ export default defineComponent({
 		},
 		onMeterUri(e: Event) {
 			this.save({ meterUri: (e.target as HTMLInputElement).value }, "meterUri");
+		},
+		// each blind action uses only one of these two settings
+		unusedBlindField(key: string): boolean {
+			const hold = this.settingValue("blindAction") === "hold";
+			return (key === "blindHoldA" && !hold) || (key === "blindPolls" && hold);
 		},
 		settingValue(key: string): string | number {
 			return (this.config.settings as unknown as Record<string, string | number>)[key]!;
