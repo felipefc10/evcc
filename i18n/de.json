@@ -1564,11 +1564,11 @@
         },
         "blindHoldPolls": {
           "label": "Autos halten nach verpassten Werten",
-          "help": "Verpasste Zählerwerte, bevor die Autos auf ihrem Minimum gehalten werden."
+          "help": "Verpasste Zählerwerte in Folge, bevor die Autos zurückgehalten werden. Laden stoppen: jedes Auto geht auf sein Minimum. Festen Strom halten: das Auto, das gerade lädt, behält diesen Strom, alle anderen stoppen."
         },
         "blindPolls": {
-          "label": "Handeln nach verpassten Werten",
-          "help": "Verpasste Zählerwerte, bevor die Aktion unten greift."
+          "label": "Autos stoppen nach verpassten Werten",
+          "help": "Verpasste Zählerwerte in Folge, bevor alle Autos stoppen. Nur wenn \"Wenn der Zähler schweigt\" auf Laden stoppen steht."
         },
         "blindAction": {
           "label": "Wenn der Zähler schweigt",

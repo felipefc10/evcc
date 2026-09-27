@@ -1505,11 +1505,11 @@
         },
         "blindHoldPolls": {
           "label": "Conter carros após leituras falhadas",
-          "help": "Leituras do contador falhadas antes de os carros ficarem no mínimo."
+          "help": "Leituras do contador falhadas seguidas antes de os carros serem contidos. Parar de carregar: cada carro vai ao seu mínimo. Manter corrente fixa: o carro que estava a carregar mantém essa corrente e os outros param."
         },
         "blindPolls": {
-          "label": "Agir após leituras falhadas",
-          "help": "Leituras falhadas antes de a ação abaixo se aplicar."
+          "label": "Parar carros após leituras falhadas",
+          "help": "Leituras falhadas seguidas antes de todos os carros pararem. Só quando \"Quando o contador não responde\" está em parar de carregar."
         },
         "blindAction": {
           "label": "Quando o contador não responde",

@@ -64,7 +64,8 @@ func (u *watch) findReleaseUpdate(installed string) (*github.RepositoryRelease, 
 		return nil, err
 	}
 
-	if v1.LessThan(v2) {
+	// core only: a fork build like 0.316.0-sc7 is the 0.316.0 release, not a pre-release of it
+	if v1.Core().LessThan(v2) {
 		go u.fetchReleaseNotes(installed)
 		return rel, nil
 	}

@@ -1564,11 +1564,11 @@
         },
         "blindHoldPolls": {
           "label": "Hold cars after missed readings",
-          "help": "Missed meter readings before the cars are held at their minimum."
+          "help": "Missed meter readings in a row before the cars are held back. Stop charging: every car goes to its minimum. Hold a fixed current: the car that was charging keeps that current and every other car stops."
         },
         "blindPolls": {
-          "label": "Act after missed readings",
-          "help": "Missed meter readings before the action below applies."
+          "label": "Stop cars after missed readings",
+          "help": "Missed meter readings in a row before every car stops. Used only when \"When the meter stays silent\" is set to stop charging."
         },
         "blindAction": {
           "label": "When the meter stays silent",
