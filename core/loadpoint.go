@@ -23,7 +23,6 @@ import (
 	"github.com/evcc-io/evcc/core/settings"
 	"github.com/evcc-io/evcc/core/site"
 	"github.com/evcc-io/evcc/core/soc"
-	"github.com/evcc-io/evcc/core/supercharge"
 	"github.com/evcc-io/evcc/core/wrapper"
 	"github.com/evcc-io/evcc/messenger"
 	"github.com/evcc-io/evcc/util"
@@ -194,15 +193,7 @@ type Loadpoint struct {
 
 	tasks *util.Queue[Task] // tasks to be executed
 
-	// whole-house load management (supercharging)
-	limitMu  sync.Mutex // serialises charger commands from the loadpoint cycle and the load manager
-	sc       *supercharge.Manager
-	scName   string
-	scDemand float64 // current asked for by the mode logic, before load management
-	scMinA   float64 // effective min current of the last cycle
-	scMaxA   float64 // effective max current of the last cycle
-	scLpMin  float64 // loadpoint min current of the last cycle
-	scPhases int     // active phases of the last cycle
+	loadpointSupercharge // whole-house load management
 }
 
 // NewLoadpointFromConfig creates a new loadpoint
@@ -921,7 +912,6 @@ func (lp *Loadpoint) syncCharger() error {
 			if current, err = cg.GetMaxCurrent(); err == nil {
 				// smallest adjustment most PWM-Controllers can do is: 100%÷256×0,6A = 0.234A
 				if delta := math.Abs(lp.offeredCurrent - current); delta > 0.23 {
-					// load management sets currents itself while it owns the loadpoint
 					if shouldBeConsistent && delta >= 1 && !lp.superchargeOwns() {
 						lp.log.WARN.Printf("charger logic error: current mismatch (got %.3gA, expected %.3gA) - make sure your interval is at least 30s", current, lp.offeredCurrent)
 					}
@@ -1008,7 +998,7 @@ func (lp *Loadpoint) setLimit(current float64) error {
 func (lp *Loadpoint) applyLimit(current float64) error {
 	current = lp.roundedCurrent(current)
 
-	// apply circuit limits, unless whole-house load management is balancing
+	// apply circuit limits
 	if lp.circuit != nil && !lp.superchargeOwns() {
 		currentLimit := lp.circuit.ValidateCurrent(lp.actualMaxChargeCurrent(), current)
 

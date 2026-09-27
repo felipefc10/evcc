@@ -207,11 +207,12 @@
 
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
-import type { LoadState } from "@/types/supercharge";
+import type { LoadLoadpoint, LoadState, SuperchargeRequest } from "@/types/supercharge";
 import api from "@/api";
 import formatter from "@/mixins/formatter";
 import GenericModal from "../Helper/GenericModal.vue";
-import { fmtDayShort } from "./format";
+import { dayOffset, fmtDayShort } from "./format";
+import { carAhead, errorText } from "./state";
 
 const DAYS = 8;
 const MORNING = 8;
@@ -230,7 +231,6 @@ export default defineComponent({
 		// the whole load state, to tell a car behind another in the charging order
 		loadState: { type: Object as PropType<LoadState | undefined>, default: undefined },
 	},
-	emits: ["updated"],
 	data() {
 		return {
 			index: 0,
@@ -327,18 +327,13 @@ export default defineComponent({
 			if (this.noEnd || !this.target) return "";
 			return `${this.dayLabel(this.day, true)} ${this.fmtHourMinute(this.target)}`;
 		},
-		me() {
+		me(): LoadLoadpoint | undefined {
 			return (this.loadState?.loadpoints || []).find((lp) => lp.index === this.index);
 		},
 		// a car higher in the order that is charging now, so this one may wait
 		ahead(): string {
-			const me = this.me;
-			if (!me) return "";
-			const first = (this.loadState?.loadpoints || []).find(
-				(o) =>
-					o.index !== me.index && o.priority > me.priority && !o.paused && o.setpointA > 0
-			);
-			return first?.title || "";
+			if (!this.me || !this.loadState) return "";
+			return carAhead(this.me, this.loadState)?.title || "";
 		},
 		// Charge first stands the car ahead down, a running supercharge included: say so first
 		aheadSupercharging(): boolean {
@@ -446,7 +441,7 @@ export default defineComponent({
 				this.$i18n.locale
 			);
 		},
-		open(index: number, title: string, active: boolean, until: string | null) {
+		open({ index, title, active, until }: SuperchargeRequest) {
 			this.index = index;
 			this.title = title;
 			this.active = active;
@@ -457,16 +452,9 @@ export default defineComponent({
 			this.aheadH = 0;
 			this.moved = false;
 			this.now = new Date();
-			if (active && until) {
-				this.set(new Date(until));
-				this.noEnd = false;
-			} else if (active) {
-				this.set(this.presetTarget("morning"));
-				this.noEnd = true;
-			} else {
-				this.set(this.presetTarget("morning"));
-				this.noEnd = false;
-			}
+			// an active supercharge without a stop shows the morning, switched off
+			this.set(active && until ? new Date(until) : this.presetTarget("morning"));
+			this.noEnd = active && !until;
 			this.initial = this.stateKey;
 			this.initialText = active && until ? this.untilText : "";
 			clearInterval(this.ticker);
@@ -505,22 +493,16 @@ export default defineComponent({
 			at.setMinutes(Math.round(at.getMinutes() / 5) * 5, 0, 0);
 			return at;
 		},
-		dayOffset(d: Date): number {
-			const n = this.now;
-			const today = new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime();
-			const that = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-			return Math.round((that - today) / 86400000);
-		},
 		same(d: Date): boolean {
 			return (
-				this.dayOffset(d) === this.day &&
+				dayOffset(d, this.now) === this.day &&
 				d.getHours() === this.hour &&
 				d.getMinutes() === this.minute
 			);
 		},
 		set(d: Date) {
 			// a stop further out than the day list reaches is shown on its last day
-			this.day = Math.max(0, Math.min(DAYS - 1, this.dayOffset(d)));
+			this.day = Math.max(0, Math.min(DAYS - 1, dayOffset(d, this.now)));
 			this.hour = d.getHours();
 			this.minute = d.getMinutes();
 		},
@@ -556,8 +538,8 @@ export default defineComponent({
 				this.aheadH = (this.$refs["ahead"] as HTMLElement | undefined)?.offsetHeight || 0;
 				this.pausedOther = this.aheadSupercharging ? this.ahead : "";
 				this.movedFirst = true;
-			} catch (e: any) {
-				this.error = e?.response?.data?.error || String(e);
+			} catch (e) {
+				this.error = errorText(e);
 			} finally {
 				this.saving = false;
 			}
@@ -570,10 +552,9 @@ export default defineComponent({
 					on,
 					until,
 				});
-				this.$emit("updated");
 				(this.$refs["modal"] as InstanceType<typeof GenericModal> | undefined)?.close();
-			} catch (e: any) {
-				this.error = e?.response?.data?.error || String(e);
+			} catch (e) {
+				this.error = errorText(e);
 			} finally {
 				this.saving = false;
 			}

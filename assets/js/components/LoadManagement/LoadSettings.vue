@@ -87,24 +87,19 @@
 							/>
 						</div>
 					</SettingRow>
-					<div
+					<LineConfirm
 						v-if="pendingOff"
-						class="line-confirm mb-3"
-						role="alert"
+						class="mb-3"
+						:text="$t('loadManagement.settings.offConfirm', { a: config.failsafeA })"
 						data-testid="load-off-confirm"
 					>
-						<span class="confirm-text">{{
-							$t("loadManagement.settings.offConfirm", { a: config.failsafeA })
-						}}</span>
-						<span class="confirm-actions">
-							<button type="button" class="btn btn-outline-secondary" @click="keepOn">
-								{{ $t("loadManagement.settings.offKeep") }}
-							</button>
-							<button type="button" class="btn btn-danger" @click="turnOff">
-								{{ $t("loadManagement.settings.offApply") }}
-							</button>
-						</span>
-					</div>
+						<button type="button" class="btn btn-outline-secondary" @click="keepOn">
+							{{ $t("loadManagement.settings.offKeep") }}
+						</button>
+						<button type="button" class="btn btn-danger" @click="turnOff">
+							{{ $t("loadManagement.settings.offApply") }}
+						</button>
+					</LineConfirm>
 					<SettingRow
 						id="lmMeterUri"
 						wide
@@ -129,30 +124,27 @@
 							:feedback="feedback[f.key]"
 							@change="(v: number) => askLine(f.key, v)"
 						/>
-						<div
+						<LineConfirm
 							v-if="pendingLine && pendingLine.key === f.key"
-							class="line-confirm mb-3"
-							role="alert"
+							class="mb-3"
+							:text="pendingLineText"
 							data-testid="load-line-confirm"
 						>
-							<span class="confirm-text">{{ pendingLineText }}</span>
-							<span class="confirm-actions">
-								<button
-									type="button"
-									class="btn btn-outline-secondary"
-									@click="undoLine"
-								>
-									{{ $t("loadManagement.settings.lineUndo", { kva: lineText }) }}
-								</button>
-								<button type="button" class="btn btn-warning" @click="applyLine">
-									{{
-										$t("loadManagement.settings.lineApply", {
-											kva: fmtNumber(pendingLine.line, 2),
-										})
-									}}
-								</button>
-							</span>
-						</div>
+							<button
+								type="button"
+								class="btn btn-outline-secondary"
+								@click="undoLine"
+							>
+								{{ $t("loadManagement.settings.lineUndo", { kva: lineText }) }}
+							</button>
+							<button type="button" class="btn btn-warning" @click="applyLine">
+								{{
+									$t("loadManagement.settings.lineApply", {
+										kva: fmtNumber(pendingLine.line, 2),
+									})
+								}}
+							</button>
+						</LineConfirm>
 					</template>
 					<SettingRow
 						id="lmLine"
@@ -317,31 +309,27 @@
 				</section>
 
 				<section
-					v-for="group in groups"
-					:id="sectionId(group.id)"
-					:key="group.id"
+					v-for="fold in folds"
+					:id="sectionId(fold.id)"
+					:key="fold.id"
 					class="lm-box mb-4"
 				>
 					<h2 class="box-heading">
 						<button
 							type="button"
 							class="box-toggle"
-							:aria-expanded="!!open[group.id]"
-							:aria-controls="`${sectionId(group.id)}-body`"
-							:data-testid="`load-toggle-${group.id}`"
-							@click="toggle(group.id)"
+							:aria-expanded="!!open[fold.id]"
+							:aria-controls="`${sectionId(fold.id)}-body`"
+							:data-testid="`load-toggle-${fold.id}`"
+							@click="toggle(fold.id)"
 						>
 							<span>
-								<span class="box-title">
-									{{ $t(`loadManagement.settings.groups.${group.id}.title`) }}
-								</span>
-								<span class="box-subtitle">
-									{{ $t(`loadManagement.settings.groups.${group.id}.subtitle`) }}
-								</span>
+								<span class="box-title">{{ fold.title }}</span>
+								<span class="box-subtitle">{{ fold.subtitle }}</span>
 							</span>
 							<svg
 								class="chevron"
-								:class="{ 'chevron--open': open[group.id] }"
+								:class="{ 'chevron--open': open[fold.id] }"
 								width="20"
 								height="20"
 								viewBox="0 0 24 24"
@@ -356,103 +344,71 @@
 							</svg>
 						</button>
 					</h2>
-					<div v-show="open[group.id]" :id="`${sectionId(group.id)}-body`">
-						<div
-							v-if="group.id === 'burst'"
-							class="tiles mb-3"
-							data-testid="load-tuning-tiles"
-						>
-							<div v-for="t in tiles" :key="t.label" class="tile">
-								<div class="tile-value">{{ t.value }}</div>
-								<div class="tile-label">{{ t.label }}</div>
+					<div
+						v-show="open[fold.id]"
+						:id="`${sectionId(fold.id)}-body`"
+						:class="{ 'pb-4': !fold.fields }"
+					>
+						<LoadBackup v-if="!fold.fields" />
+						<template v-else>
+							<div
+								v-if="fold.id === 'burst'"
+								class="tiles mb-3"
+								data-testid="load-tuning-tiles"
+							>
+								<div v-for="t in tiles" :key="t.label" class="tile">
+									<div class="tile-value">{{ t.value }}</div>
+									<div class="tile-label">{{ t.label }}</div>
+								</div>
 							</div>
-						</div>
-						<template v-for="f in group.fields" :key="f.key">
-							<SettingRow
-								v-if="f.type === 'select'"
-								:id="`lm-${f.key}`"
-								:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
-								:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
-								:feedback="feedback[f.key]"
-							>
-								<select
+							<template v-for="f in fold.fields" :key="f.key">
+								<SettingRow
+									v-if="f.type === 'select'"
 									:id="`lm-${f.key}`"
-									class="form-select"
-									:value="settingValue(f.key)"
-									@change="
-										saveSetting(
-											f.key,
-											($event.target as HTMLSelectElement).value
-										)
-									"
+									:label="$t(`loadManagement.settings.fields.${f.key}.label`)"
+									:help="$t(`loadManagement.settings.fields.${f.key}.help`)"
+									:feedback="feedback[f.key]"
 								>
-									<option v-for="o in f.options" :key="o" :value="o">
-										{{
-											$t(
-												`loadManagement.settings.fields.${f.key}.options.${o}`
+									<select
+										:id="`lm-${f.key}`"
+										class="form-select"
+										:value="settingValue(f.key)"
+										@change="
+											saveSetting(
+												f.key,
+												($event.target as HTMLSelectElement).value
 											)
-										}}
-									</option>
-								</select>
-							</SettingRow>
-							<PacingRow
-								v-else-if="f.type === 'pacing'"
-								:field="f.key"
-								:value="String(settingValue(f.key))"
-								:feedback="feedback[f.key]"
-								@change="(v: string) => saveSetting(f.key, v)"
-							/>
-							<NumberRow
-								v-else
-								:field="f"
-								:disabled="
-									f.key === 'blindHoldA' && settingValue('blindAction') !== 'hold'
-								"
-								:value="Number(settingValue(f.key))"
-								:feedback="feedback[f.key]"
-								@change="(v: number) => saveSetting(f.key, v)"
-							/>
+										"
+									>
+										<option v-for="o in f.options" :key="o" :value="o">
+											{{
+												$t(
+													`loadManagement.settings.fields.${f.key}.options.${o}`
+												)
+											}}
+										</option>
+									</select>
+								</SettingRow>
+								<PacingRow
+									v-else-if="f.type === 'pacing'"
+									:field="f.key"
+									:value="String(settingValue(f.key))"
+									:feedback="feedback[f.key]"
+									@change="(v: string) => saveSetting(f.key, v)"
+								/>
+								<NumberRow
+									v-else
+									:field="f"
+									:disabled="
+										f.key === 'blindHoldA' &&
+										settingValue('blindAction') !== 'hold'
+									"
+									:value="Number(settingValue(f.key))"
+									:feedback="feedback[f.key]"
+									@change="(v: number) => saveSetting(f.key, v)"
+								/>
+							</template>
 						</template>
-					</div>
-				</section>
-
-				<section :id="sectionId('import')" class="lm-box mb-4">
-					<h2 class="box-heading">
-						<button
-							type="button"
-							class="box-toggle"
-							:aria-expanded="!!open['import']"
-							:aria-controls="`${sectionId('import')}-body`"
-							data-testid="load-toggle-import"
-							@click="toggle('import')"
-						>
-							<span>
-								<span class="box-title">{{
-									$t("loadManagement.backup.title")
-								}}</span>
-								<span class="box-subtitle">{{
-									$t("loadManagement.backup.subtitle")
-								}}</span>
-							</span>
-							<svg
-								class="chevron"
-								:class="{ 'chevron--open': open['import'] }"
-								width="20"
-								height="20"
-								viewBox="0 0 24 24"
-								fill="none"
-								stroke="currentColor"
-								stroke-width="2.4"
-								stroke-linecap="round"
-								stroke-linejoin="round"
-								aria-hidden="true"
-							>
-								<path d="m6 9 6 6 6-6" />
-							</svg>
-						</button>
-					</h2>
-					<div v-show="open['import']" :id="`${sectionId('import')}-body`" class="pb-4">
-						<LoadBackup />
 					</div>
 				</section>
 			</fieldset>
@@ -467,7 +423,9 @@ import formatter from "@/mixins/formatter";
 import SettingRow from "./SettingRow.vue";
 import NumberRow, { type NumberField } from "./NumberRow.vue";
 import LoadBackup from "./LoadBackup.vue";
+import LineConfirm from "./LineConfirm.vue";
 import PacingRow from "./PacingRow.vue";
+import { errorText } from "./state";
 import type {
 	LoadConfig,
 	LoadLoadpoint,
@@ -498,7 +456,7 @@ const Feedback = defineComponent({
 // Every setting is applied the moment it is changed: the control loop reads it on its next second.
 export default defineComponent({
 	name: "LoadSettings",
-	components: { SettingRow, NumberRow, Feedback, LoadBackup, PacingRow },
+	components: { SettingRow, NumberRow, Feedback, LoadBackup, LineConfirm, PacingRow },
 	mixins: [formatter],
 	props: {
 		config: { type: Object as PropType<LoadConfig>, required: true },
@@ -526,11 +484,23 @@ export default defineComponent({
 			return [
 				{ id: "installation", title: this.$t("loadManagement.settings.general") },
 				{ id: "chargers", title: this.$t("loadManagement.settings.loadpoints") },
+				...this.folds.map(({ id, title }) => ({ id, title })),
+			];
+		},
+		// the sections behind a toggle
+		folds(): { id: string; title: string; subtitle: string; fields?: Field[] }[] {
+			return [
 				...this.groups.map((g) => ({
 					id: g.id,
 					title: this.$t(`loadManagement.settings.groups.${g.id}.title`),
+					subtitle: this.$t(`loadManagement.settings.groups.${g.id}.subtitle`),
+					fields: g.fields,
 				})),
-				{ id: "import", title: this.$t("loadManagement.backup.title") },
+				{
+					id: "import",
+					title: this.$t("loadManagement.backup.title"),
+					subtitle: this.$t("loadManagement.backup.subtitle"),
+				},
 			];
 		},
 		loadpoints(): LoadLoadpoint[] {
@@ -819,7 +789,7 @@ export default defineComponent({
 		},
 		scrollTo(id: string) {
 			this.current = id;
-			if (id in this.open || this.groups.some((g) => g.id === id) || id === "import") {
+			if (this.folds.some((f) => f.id === id)) {
 				this.open = { ...this.open, [id]: true };
 			}
 			this.$nextTick(() =>
@@ -933,8 +903,8 @@ export default defineComponent({
 						: this.$t("loadManagement.settings.saved");
 				}
 				this.say(key, true, text);
-			} catch (e: any) {
-				this.say(key, false, e?.response?.data?.error || String(e));
+			} catch (e) {
+				this.say(key, false, errorText(e));
 			}
 		},
 		say(key: string, ok: boolean, text: string) {
@@ -1156,16 +1126,6 @@ fieldset {
 	font-weight: 700;
 	margin-bottom: 0.35rem;
 }
-.confirm-text {
-	flex: 1 1 100%;
-}
-.confirm-actions {
-	display: flex;
-	justify-content: flex-end;
-	align-items: center;
-	gap: 0.5rem;
-	margin-left: auto;
-}
 .instant-note {
 	font-size: 0.875rem;
 	color: var(--evcc-gray);
@@ -1206,46 +1166,11 @@ fieldset {
 	border-color: var(--evcc-default-text);
 	color: var(--evcc-background);
 }
-.topics-help {
-	font-size: 0.85rem;
-	margin: 0 0 1rem;
-	display: grid;
-	gap: 0.4rem;
-}
-.topics-help dt {
-	display: inline;
-	font-weight: 700;
-}
-.topics-help dt::after {
-	content: ": ";
-}
-.topics-help dd {
-	display: inline;
-	margin: 0;
-	color: var(--evcc-gray);
-	overflow-wrap: anywhere;
-}
 .feeds :deep(input) {
-	overflow-wrap: anywhere;
-}
-.feed-help {
-	font-size: 0.8125rem;
-	color: var(--evcc-gray);
-	margin-top: 0.3rem;
 	overflow-wrap: anywhere;
 }
 .switch--pending {
 	opacity: 0.5;
-}
-.line-confirm {
-	display: flex;
-	align-items: center;
-	flex-wrap: wrap;
-	gap: 0.5rem;
-	padding: 0.75rem 1rem;
-	border-radius: 1rem;
-	background: color-mix(in srgb, var(--evcc-orange) 12%, transparent);
-	font-size: 0.875rem;
 }
 .unit {
 	min-width: 3.5rem;
@@ -1254,11 +1179,6 @@ fieldset {
 .feeds :deep(input::placeholder) {
 	font-family: var(--bs-body-font-family);
 	opacity: 0.55;
-}
-.fast-help {
-	font-size: 0.8rem;
-	color: var(--evcc-gray);
-	margin: -0.4rem 0 0.9rem;
 }
 .feed-note {
 	font-size: 0.75rem;

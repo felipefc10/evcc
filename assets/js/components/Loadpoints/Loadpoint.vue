@@ -75,26 +75,12 @@
 					:class="`opacity-${showChargingIndicator ? '100' : '0'}`"
 				/>
 			</div>
-			<div v-if="lmOn" class="allowed d-flex flex-column align-items-center text-center">
-				<LabelAndValue
-					:label="$t('loadManagement.card.allowed')"
-					:value="allowedValue"
-					align="center"
-					data-testid="loadpoint-allowed"
-				/>
-				<SuperchargePill
-					class="mt-1 allowed-pill"
-					:index="loadManagement!.index"
-					:title="loadManagement!.title"
-					:active="loadManagement!.supercharge"
-					:paused="lmPaused"
-					:until="loadManagement!.superchargeUntil"
-					:note="allowedWhy"
-					:reserve="lmLineUsed"
-					stacked
-					@open="$emit('open-supercharge', $event)"
-				/>
-			</div>
+			<LoadpointAllowed
+				v-if="lmOn"
+				:lp="loadManagement!"
+				:state="loadState!"
+				@open-supercharge="$emit('open-supercharge', $event)"
+			/>
 			<LabelAndValue
 				v-if="integratedDevice && !lmOn"
 				:label="$t('main.loadpoint.todayEnergy')"
@@ -142,8 +128,7 @@ import SettingsButton from "./SettingsButton.vue";
 import SettingsModal from "./SettingsModal.vue";
 import VehicleIcon from "../VehicleIcon";
 import SessionInfo from "./SessionInfo.vue";
-import SuperchargePill from "../LoadManagement/SuperchargePill.vue";
-import { waitReason } from "../LoadManagement/loadpointReason";
+import LoadpointAllowed from "../LoadManagement/LoadpointAllowed.vue";
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 import { defineComponent, type PropType } from "vue";
 import type {
@@ -171,7 +156,7 @@ export default defineComponent({
 		LabelAndValue,
 		LoadpointSettingsButton: SettingsButton,
 		LoadpointSessionInfo: SessionInfo,
-		SuperchargePill,
+		LoadpointAllowed,
 		VehicleIcon,
 	},
 	mixins: [formatter, collector],
@@ -327,53 +312,6 @@ export default defineComponent({
 		lmOn(): boolean {
 			return !!(this.loadManagement && this.loadState && this.loadState.enabled);
 		},
-		// a held-back car gets 0 A; the line under the pill says why
-		allowedValue(): string {
-			const lm = this.loadManagement;
-			const s = this.loadState;
-			if (!lm || !s?.running || !lm.wants) return "—";
-			if (lm.paused || s.blind > 0) return "0 A";
-			// a car that is not drawing yet may take up to this, not more
-			return lm.charging
-				? `${lm.setpointA} A`
-				: this.$t("loadManagement.card.upTo", { a: lm.setpointA });
-		},
-		lmBursting(): boolean {
-			const s = this.loadState;
-			const lm = this.loadManagement;
-			return !!(
-				this.lmOn &&
-				s?.running &&
-				s.phase === "burst" &&
-				lm?.supercharge &&
-				!lm.paused
-			);
-		},
-		lmPaused(): boolean {
-			const s = this.loadState;
-			return !!(
-				this.loadManagement?.supercharge &&
-				s &&
-				(s.burstStoodDown || s.blind > 0 || s.tempBlock || this.loadManagement.paused)
-			);
-		},
-		// any card with a line under its pill makes every card keep one, so the cards line up
-		lmLineUsed(): boolean {
-			const s = this.loadState;
-			if (!s?.running) return false;
-			return (s.loadpoints || []).some((lp) => lp.supercharge || (lp.wants && lp.paused));
-		},
-		// said only when load management holds this car back
-		allowedWhy(): string {
-			const lm = this.loadManagement;
-			const s = this.loadState;
-			if (!lm || !s) return "";
-			if (!s.running || !lm.wants) return "";
-			if (this.lmBursting) return this.$t("loadManagement.card.whyBursting");
-			if (s.blind > 0) return this.$t("loadManagement.card.whyBlind");
-			if (lm.paused) return waitReason(lm, s, (k, v) => this.$t(k, v || {}));
-			return "";
-		},
 		integratedDevice() {
 			return this.chargerFeatureIntegratedDevice;
 		},
@@ -522,14 +460,6 @@ export default defineComponent({
 }
 .details > div:nth-child(3) {
 	text-align: right;
-}
-
-.allowed-pill {
-	width: max-content;
-	max-width: none;
-}
-.allowed {
-	overflow: visible !important;
 }
 .opacity-transiton {
 	transition: opacity var(--evcc-transition-slow) ease-in;

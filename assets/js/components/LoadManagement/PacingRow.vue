@@ -113,11 +113,6 @@ import SettingRow from "./SettingRow.vue";
 
 // the server's default cadence, see CadenceDefault in core/supercharge/settings.go
 const DEFAULT = "1:10, 2:5, 3:3.3, 5:2, 10:1, 20:0.5";
-// "1 A 10 s · 2 A 5 s", as the import review writes a table
-const DEFAULT_TEXT = DEFAULT.split(",")
-	.map((p) => p.split(":").map((x) => x.trim()))
-	.map(([a, t]) => `${a}\u00a0A ${t}\u00a0s`)
-	.join(" · ");
 
 interface Row {
 	a: number;
@@ -130,6 +125,15 @@ const parse = (text: string): Row[] =>
 		.map((p) => p.split(":").map((x) => parseFloat(x.trim())))
 		.filter((p) => p.length === 2 && p.every((x) => Number.isFinite(x)))
 		.map(([a, s]) => ({ a: a!, s: s! }));
+
+// "1 A 10 s · 2 A 5 s", as the import review writes a table
+const rowsText = (rows: Row[]): string =>
+	rows.map((r) => `${r.a}\u00a0A ${r.s}\u00a0s`).join(" · ");
+
+const DEFAULT_TEXT = rowsText(parse(DEFAULT));
+
+// a row with a box still empty
+const isDraft = (r: Row): boolean => !Number.isFinite(r.a) || !Number.isFinite(r.s);
 
 // A cadence table as rows of "at least this many amps waits this many seconds".
 // The server keeps the "1:10, 2:5" text form; this only edits it row by row.
@@ -145,7 +149,6 @@ export default defineComponent({
 	data() {
 		// the table a reset replaced, so one press brings it back
 		return {
-			DEFAULT,
 			DEFAULT_TEXT,
 			rows: parse(this.value),
 			before: "",
@@ -157,13 +160,13 @@ export default defineComponent({
 	watch: {
 		// a save elsewhere in the table keeps an unfinished draft row
 		value(v: string) {
-			const drafts = this.rows.filter((r) => !Number.isFinite(r.a) || !Number.isFinite(r.s));
+			const drafts = this.rows.filter(isDraft);
 			this.rows = [...parse(v), ...drafts];
 		},
 	},
 	computed: {
 		hasDraft(): boolean {
-			return this.rows.some((r) => !Number.isFinite(r.a) || !Number.isFinite(r.s));
+			return this.rows.some(isDraft);
 		},
 		isDefault(): boolean {
 			return this.value.replace(/\s/g, "") === DEFAULT.replace(/\s/g, "");
@@ -172,10 +175,8 @@ export default defineComponent({
 	methods: {
 		resetTable() {
 			// a reset replaces the whole table, unfinished rows included
-			this.rows = this.rows.filter((r) => Number.isFinite(r.a) && Number.isFinite(r.s));
-			this.undoText = parse(this.value)
-				.map((r) => `${r.a}\u00a0A ${r.s}\u00a0s`)
-				.join(" · ");
+			this.rows = this.rows.filter((r) => !isDraft(r));
+			this.undoText = rowsText(parse(this.value));
 			this.offerUndo();
 			this.$emit("change", DEFAULT);
 		},
@@ -191,9 +192,7 @@ export default defineComponent({
 			);
 			this.rowError = bad ? this.$t("loadManagement.settings.pacing.invalid") : "";
 			if (bad) return;
-			const valid = this.rows.filter(
-				(r) => Number.isFinite(r.a) && Number.isFinite(r.s) && r.a > 0
-			);
+			const valid = this.rows.filter((r) => !isDraft(r) && r.a > 0);
 			if (!valid.length) return;
 			this.$emit("change", valid.map((r) => `${r.a}:${r.s}`).join(", "));
 		},
@@ -209,8 +208,8 @@ export default defineComponent({
 		remove(i: number) {
 			const r = this.rows[i]!;
 			this.rows.splice(i, 1);
-			if (!Number.isFinite(r.a) || !Number.isFinite(r.s)) return;
-			this.undoText = `${r.a}\u00a0A ${r.s}\u00a0s`;
+			if (isDraft(r)) return;
+			this.undoText = rowsText([r]);
 			this.offerUndo();
 			this.emit();
 		},
@@ -252,9 +251,5 @@ export default defineComponent({
 	min-width: 2.25rem;
 	min-height: 2.25rem;
 	padding: 0;
-}
-.reset {
-	font-size: 0.75rem;
-	color: var(--evcc-default-text);
 }
 </style>

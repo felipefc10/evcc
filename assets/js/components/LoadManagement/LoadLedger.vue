@@ -149,8 +149,8 @@
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
 import formatter from "@/mixins/formatter";
-import colors from "@/colors";
 import type { LoadState } from "@/types/supercharge";
+import { lpColor, rulerMax, superchargeDrawing } from "./state";
 
 interface Segment {
 	id: string;
@@ -185,7 +185,7 @@ export default defineComponent({
 					name: lp.title,
 					amps,
 					kva: (amps * this.volts) / 1000,
-					color: colors.palette[i % colors.palette.length] || "#60A5FA",
+					color: lpColor(i),
 				};
 			});
 		},
@@ -215,8 +215,7 @@ export default defineComponent({
 		},
 		// the same fixed ruler as the main screen, so the line mark never moves
 		scaleMax(): number {
-			const s = this.state;
-			return Math.max(s.thresholdKva * 1.3, (s.burstKva || 0) * 1.05, 0.1);
+			return rulerMax(this.state);
 		},
 		linePos(): number {
 			return this.pos(this.state.thresholdKva);
@@ -330,35 +329,12 @@ export default defineComponent({
 			const waitingNames = lps
 				.filter((lp) => lp.connected && lp.wants && lp.paused && !drawing.includes(lp))
 				.map((lp) => lp.title);
-			const ahead = lps.find((o) => !o.paused && o.setpointA > 0);
-			// "Wallbox and Little Beast wait for power", not the same clause twice
-			const waiting = !waitingNames.length
-				? []
-				: waitingNames.length === 1
-					? [
-							ahead
-								? this.$t("loadManagement.status.waitingFor", {
-										name: waitingNames[0],
-										first: ahead.title,
-									})
-								: this.$t("loadManagement.status.waiting", {
-										name: waitingNames[0],
-									}),
-						]
-					: [
-							this.$t("loadManagement.status.waitingMany", {
-								names: waitingNames.join(
-									` ${this.$t("loadManagement.import.and")} `
-								),
-							}),
-						];
+			const waiting = this.waitingClause(waitingNames);
 			if (!charging.length && !waiting.length) {
 				return this.$t("loadManagement.status.noCar", { line });
 			}
 			// a supercharge may sit above the line on purpose, as the status word says
-			const overKey = lps.some((lp) => lp.supercharge && !lp.paused && lp.setpointA > 0)
-				? "overSupercharge"
-				: "over";
+			const overKey = superchargeDrawing(s) ? "overSupercharge" : "over";
 			const risk =
 				s.vaKva > s.thresholdKva
 					? this.$t(`loadManagement.status.${overKey}`, {
@@ -414,16 +390,25 @@ export default defineComponent({
 				pct: this.fmtNumber(Math.abs(g), 0),
 			});
 		},
-		patienceLabel(): string {
-			if (!this.state.running) return "—";
-			if (this.state.tiS <= 0) return this.$t("loadManagement.patience.clear");
-			return this.$t("loadManagement.patience.banked", {
-				pct: this.closenessPct,
-				s: this.fmtNumber(this.state.tiS, 0),
-			});
-		},
 	},
 	methods: {
+		// "Wallbox and Little Beast wait for power", not the same clause twice
+		waitingClause(names: string[]): string[] {
+			if (!names.length) return [];
+			if (names.length > 1) {
+				const and = ` ${this.$t("loadManagement.ledger.and")} `;
+				return [this.$t("loadManagement.status.waitingMany", { names: names.join(and) })];
+			}
+			const ahead = (this.state.loadpoints || []).find((o) => !o.paused && o.setpointA > 0);
+			return [
+				ahead
+					? this.$t("loadManagement.status.waitingFor", {
+							name: names[0],
+							first: ahead.title,
+						})
+					: this.$t("loadManagement.status.waiting", { name: names[0] }),
+			];
+		},
 		pos(kva: number): number {
 			return Math.max(0, Math.min(100, (100 * kva) / this.scaleMax));
 		},

@@ -2,12 +2,25 @@ package core
 
 import (
 	"math"
+	"sync"
 
 	"github.com/evcc-io/evcc/api"
 	"github.com/evcc-io/evcc/core/supercharge"
 )
 
 var _ supercharge.Loadpoint = (*Loadpoint)(nil)
+
+// loadpointSupercharge is the loadpoint's whole-house load management state
+type loadpointSupercharge struct {
+	limitMu  sync.Mutex // serialises charger commands from the loadpoint cycle and the load manager
+	sc       *supercharge.Manager
+	scName   string
+	scDemand float64 // current asked for by the mode logic, before load management
+	scMinA   float64 // effective min current of the last cycle
+	scMaxA   float64 // effective max current of the last cycle
+	scLpMin  float64 // loadpoint min current of the last cycle
+	scPhases int     // active phases of the last cycle
+}
 
 // superchargeRegister attaches the load manager to this loadpoint
 func (lp *Loadpoint) superchargeRegister(m *supercharge.Manager, name string) {
@@ -52,23 +65,25 @@ func (lp *Loadpoint) SuperchargeState() supercharge.LpState {
 	}
 
 	st := supercharge.LpState{
-		Title:        lp.title,
-		Vehicle:      vehicle,
-		Mode:         string(lp.mode),
-		Priority:     prio,
-		Connected:    lp.status == api.StatusB || lp.status == api.StatusC,
-		Charging:     lp.status == api.StatusC,
-		Enabled:      lp.enabled,
-		DemandA:      lp.scDemand,
-		MinA:         minA,
-		MaxA:         maxA,
-		Phases:       phases,
-		OfferedA:     lp.offeredCurrent,
-		ChargePowerW: lp.chargePower,
-		Soc:          soc,
-		LimitSoc:     limitSoc,
-		RemainingWh:  lp.chargeRemainingEnergy * 1e3,
-		ChargedWh:    charged,
+		Title:            lp.title,
+		Vehicle:          vehicle,
+		Mode:             string(lp.mode),
+		Priority:         prio,
+		Connected:        lp.status == api.StatusB || lp.status == api.StatusC,
+		Charging:         lp.status == api.StatusC,
+		Enabled:          lp.enabled,
+		DemandA:          lp.scDemand,
+		MinA:             minA,
+		MaxA:             maxA,
+		Phases:           phases,
+		MeasuredPhases:   lp.measuredPhases,
+		ConfiguredPhases: lp.phasesConfigured,
+		OfferedA:         lp.offeredCurrent,
+		ChargePowerW:     lp.chargePower,
+		Soc:              soc,
+		LimitSoc:         limitSoc,
+		RemainingWh:      lp.chargeRemainingEnergy * 1e3,
+		ChargedWh:        charged,
 	}
 	if lp.chargeCurrents != nil {
 		st.ChargeCurrents = append([]float64(nil), lp.chargeCurrents...)
@@ -140,4 +155,11 @@ func (lp *Loadpoint) superchargeClamp(current float64) float64 {
 // superchargeOwns reports whether whole-house load management is balancing this loadpoint
 func (lp *Loadpoint) superchargeOwns() bool {
 	return lp.sc != nil && lp.sc.Owns()
+}
+
+// superchargeLimitsChanged lets load management read the effective limits of the next cycle
+func (lp *Loadpoint) superchargeLimitsChanged() {
+	if lp.sc != nil {
+		lp.requestUpdate()
+	}
 }

@@ -11,7 +11,7 @@
 				<LoadLoadpointCard
 					:lp="row.lp"
 					:state="state"
-					:color="colorOf(row.lp.index)"
+					:color="lpColor(row.lp.index)"
 					:priority="row.priority"
 					:place="row.place"
 					:can-first="row.canFirst"
@@ -32,8 +32,8 @@
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
 import api from "@/api";
-import colors from "@/colors";
 import LoadLoadpointCard from "./LoadLoadpointCard.vue";
+import { errorText, lpColor } from "./state";
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 
 interface Arrangement {
@@ -110,19 +110,10 @@ export default defineComponent({
 			return this.view.order.map((name, i) => {
 				const p = prios[i]!;
 				const tied = prios.filter((x) => x === p).length > 1;
-				let place = "";
-				if (this.movable) {
-					const level = levels.indexOf(p);
-					place = tied
-						? this.$t("loadManagement.order.shares")
-						: level < 4
-							? this.$t(`loadManagement.order.place${level + 1}`)
-							: this.$t("loadManagement.order.later");
-				}
 				return {
 					lp: this.byName[name]!,
 					priority: p,
-					place,
+					place: this.movable ? this.placeText(levels.indexOf(p), tied) : "",
 					// sharing first place counts as not first yet, so both can step ahead
 					canFirst: this.movable && (i > 0 || (tied && p === prios[0])),
 				};
@@ -148,8 +139,11 @@ export default defineComponent({
 		clearTimeout(this.timer);
 	},
 	methods: {
-		colorOf(i: number): string {
-			return colors.palette[i % colors.palette.length] || "#60A5FA";
+		lpColor,
+		placeText(level: number, tied: boolean): string {
+			if (tied) return this.$t("loadManagement.order.shares");
+			if (level < 4) return this.$t(`loadManagement.order.place${level + 1}`);
+			return this.$t("loadManagement.order.later");
 		},
 		prio(lp: LoadLoadpoint): number {
 			return lp.name in this.wanted ? this.wanted[lp.name]! : lp.priority;
@@ -187,12 +181,12 @@ export default defineComponent({
 				await Promise.all(
 					changes.map((c) => api.post(`loadpoints/${c.lp.index + 1}/priority/${c.p}`))
 				);
-			} catch (e: any) {
+			} catch (e) {
 				const back = { ...this.wanted };
 				changes.forEach((c) => delete back[c.lp.name]);
 				this.wanted = back;
 				this.error = this.$t("loadManagement.order.failed", {
-					error: e?.response?.data?.error || String(e),
+					error: errorText(e),
 				});
 			}
 		},
