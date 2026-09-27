@@ -33,7 +33,15 @@ func superchargeSubscribe(topic string, cb func(string)) error {
 
 // prepareSupercharge creates the whole-house load manager and attaches every loadpoint
 func (site *Site) prepareSupercharge() {
-	site.supercharge = supercharge.NewManager(util.NewLogger("supercharge"), superchargeStore{}, superchargeSubscribe, site.publish)
+	var plant supercharge.Plant
+	if site.gridMeter != nil {
+		plant.Grid = site.gridMeter.Instance()
+	}
+	if len(site.pvMeters) > 0 {
+		plant.PV = func() float64 { return site.state().pvPower }
+	}
+
+	site.supercharge = supercharge.NewManager(util.NewLogger("supercharge"), superchargeStore{}, superchargeSubscribe, site.publish, plant)
 	circuit.SetStandIn(site.supercharge.Owns)
 
 	lpDevices := config.Loadpoints().Devices()

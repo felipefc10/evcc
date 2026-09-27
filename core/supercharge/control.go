@@ -103,11 +103,22 @@ type Sample struct {
 	Alarm           bool       `json:"alarm"`
 	TempC           *float64   `json:"temp_c"`
 	SourceOhm       float64    `json:"source_ohm"`
+	// PvKVA is the solar production evcc measures. Solar lets the house net below zero,
+	// but never further than the panels deliver, so a car overclaiming cannot invent headroom.
+	PvKVA float64 `json:"pv_kva"`
 }
 
 // Volts is the line voltage, nominal when implausible
 func (sm *Sample) Volts() float64 {
 	return UsableVolts(sm.Volt)
+}
+
+// NetKVA is the apparent power signed like the real power: negative while exporting
+func (sm *Sample) NetKVA() float64 {
+	if sm.Watts < 0 {
+		return -sm.VaKVA
+	}
+	return sm.VaKVA
 }
 
 // LpCommand is one loadpoint's command
@@ -497,7 +508,7 @@ func (c *Controller) computeSplit(sm *Sample) *split {
 		return s
 	}
 	total := sum(share)
-	avail := math.Max(sm.VaKVA-c.floorKVA(sm), 0.0)
+	avail := math.Max(sm.NetKVA()+sm.PvKVA-c.floorKVA(sm), 0.0)
 	if total > avail+1e-9 {
 		scale := 0.0
 		if total > 0 {
@@ -511,7 +522,7 @@ func (c *Controller) computeSplit(sm *Sample) *split {
 		}
 		total = sum(share)
 	}
-	return &split{house: math.Max(sm.VaKVA-total, 0.0), share: share, raw: raw, clamped: clamped}
+	return &split{house: math.Max(sm.NetKVA()-total, -sm.PvKVA), share: share, raw: raw, clamped: clamped}
 }
 
 func (c *Controller) splitNow(sm *Sample) *split {
@@ -549,7 +560,7 @@ func (c *Controller) resplit(sm *Sample) {
 		anySetpoint = anySetpoint || c.SetpointOf(lp.Key) != 0
 	}
 	if measured <= 0.25 && !anyRunning && !anySetpoint && !c.inMotion(sm) {
-		c.idleHouseKVA = sm.VaKVA
+		c.idleHouseKVA = math.Max(sm.NetKVA()+sm.PvKVA, 0.0)
 		c.idleHouseT = sm.T
 	}
 
@@ -604,7 +615,7 @@ func (c *Controller) carsA(sm *Sample, commanded bool) float64 {
 		}
 		total += math.Max(c.draw(lp), sp)
 	}
-	roomA := math.Max(sm.VaKVA-c.floorKVA(sm), 0.0) * 1000.0 / sm.Volts()
+	roomA := math.Max(sm.NetKVA()+sm.PvKVA-c.floorKVA(sm), 0.0) * 1000.0 / sm.Volts()
 	return math.Min(total, roomA)
 }
 
@@ -615,7 +626,7 @@ func (c *Controller) headroomA(goalKVA float64, sm *Sample, commanded bool) floa
 	if q == 0 || pMeter == 0 {
 		var house float64
 		if commanded {
-			house = math.Max(sm.VaKVA-carsA*sm.Volts()/1000.0, 0.0)
+			house = math.Max(sm.NetKVA()-carsA*sm.Volts()/1000.0, -sm.PvKVA)
 		} else {
 			house = c.houseKVA(sm)
 		}
@@ -627,7 +638,7 @@ func (c *Controller) headroomA(goalKVA float64, sm *Sample, commanded bool) floa
 	}
 	pGoal := math.Sqrt(goalW*goalW - q*q)
 	pCars := carsA * sm.Volts()
-	return (pGoal - math.Max(pMeter-pCars, 0.0)) / vGoal
+	return (pGoal - math.Max(pMeter-pCars, -sm.PvKVA*1000.0)) / vGoal
 }
 
 func (c *Controller) budgetA(goalKVA float64, sm *Sample, clamp bool, extraA float64, commanded bool) float64 {
@@ -682,7 +693,7 @@ func (c *Controller) meterClamp(wantA, goalKVA float64, sm *Sample, extraA float
 	for i := range sm.Lps {
 		nowA += c.anchorA(&sm.Lps[i], sm)
 	}
-	roomA := goalKVA*1000.0/c.voltsAt(goalKVA, sm) - sm.VaKVA*1000.0/sm.Volts()
+	roomA := goalKVA*1000.0/c.voltsAt(goalKVA, sm) - sm.NetKVA()*1000.0/sm.Volts()
 	if roomA > 0 {
 		roomA += math.Max(extraA, 0.0)
 	}
@@ -1124,7 +1135,7 @@ func (c *Controller) dwellAffordable(sm *Sample) bool {
 			sum += math.Max(c.draw(lp)-float64(c.floorA(lp)), 0.0)
 		}
 	}
-	held := sm.VaKVA - sum*sm.Volts()/1000.0
+	held := sm.NetKVA() - sum*sm.Volts()/1000.0
 	return held <= c.curve.ThresholdKVA()+floorSlackKVA
 }
 

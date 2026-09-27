@@ -35,6 +35,7 @@ func (s *HTTPd) RegisterSuperchargeHandlers(m *supercharge.Manager, ensureAuth m
 		"bursts":      {"GET", "/bursts", superchargeBurstsHandler(m)},
 		"diagnostics": {"GET", "/diagnostics", superchargeDiagnosticsHandler(m)},
 		"selftest":    {"POST", "/selftest", superchargeSelftestHandler(m)},
+		"export":      {"GET", "/export", ensureAuth(superchargeExportHandler(m)).ServeHTTP},
 		"import":      {"POST", "/import", ensureAuth(superchargeImportHandler(m)).ServeHTTP},
 	}
 
@@ -122,22 +123,29 @@ func superchargeSelftestHandler(m *supercharge.Manager) http.HandlerFunc {
 	}
 }
 
+func superchargeExportHandler(m *supercharge.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		res, err := m.Export()
+		if err != nil {
+			jsonError(w, http.StatusInternalServerError, err)
+			return
+		}
+		w.Header().Set("Content-Disposition", `attachment; filename="load-management.json"`)
+		jsonWrite(w, res)
+	}
+}
+
 func superchargeImportHandler(m *supercharge.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Settings map[string]any    `json:"settings"`
-			Learned  json.RawMessage   `json:"learned"`
-			Names    map[string]string `json:"names"`
-		}
+		var req supercharge.Backup
 		if err := json.NewDecoder(io.LimitReader(r.Body, superchargeBodyLimit)).Decode(&req); err != nil {
 			jsonError(w, http.StatusBadRequest, err)
 			return
 		}
-		n, err := m.ImportAddon(req.Settings, req.Learned, req.Names)
-		if err != nil {
+		if err := m.Import(req); err != nil {
 			jsonError(w, http.StatusBadRequest, err)
 			return
 		}
-		jsonWrite(w, map[string]any{"learnedKeys": n, "config": m.Config()})
+		jsonWrite(w, m.Config())
 	}
 }

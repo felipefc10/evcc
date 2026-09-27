@@ -117,7 +117,7 @@
 							class="form-control"
 							type="url"
 							:value="config.meterUri"
-							placeholder="http://192.168.1.10/emeter/0"
+							:placeholder="$t('loadManagement.settings.meterUriPlaceholder')"
 							@change="onMeterUri"
 						/>
 					</SettingRow>
@@ -428,10 +428,10 @@
 						>
 							<span>
 								<span class="box-title">{{
-									$t("loadManagement.import.title")
+									$t("loadManagement.backup.title")
 								}}</span>
 								<span class="box-subtitle">{{
-									$t("loadManagement.import.subtitle")
+									$t("loadManagement.backup.subtitle")
 								}}</span>
 							</span>
 							<svg
@@ -452,11 +452,7 @@
 						</button>
 					</h2>
 					<div v-show="open['import']" :id="`${sectionId('import')}-body`" class="pb-4">
-						<LoadImport
-							:loadpoints="loadpoints"
-							:imported-from="config.importedFrom || ''"
-							:config="config"
-						/>
+						<LoadBackup />
 					</div>
 				</section>
 			</fieldset>
@@ -470,7 +466,7 @@ import api from "@/api";
 import formatter from "@/mixins/formatter";
 import SettingRow from "./SettingRow.vue";
 import NumberRow, { type NumberField } from "./NumberRow.vue";
-import LoadImport from "./LoadImport.vue";
+import LoadBackup from "./LoadBackup.vue";
 import PacingRow from "./PacingRow.vue";
 import type {
 	LoadConfig,
@@ -502,7 +498,7 @@ const Feedback = defineComponent({
 // Every setting is applied the moment it is changed: the control loop reads it on its next second.
 export default defineComponent({
 	name: "LoadSettings",
-	components: { SettingRow, NumberRow, Feedback, LoadImport, PacingRow },
+	components: { SettingRow, NumberRow, Feedback, LoadBackup, PacingRow },
 	mixins: [formatter],
 	props: {
 		config: { type: Object as PropType<LoadConfig>, required: true },
@@ -534,7 +530,7 @@ export default defineComponent({
 					id: g.id,
 					title: this.$t(`loadManagement.settings.groups.${g.id}.title`),
 				})),
-				{ id: "import", title: this.$t("loadManagement.import.title") },
+				{ id: "import", title: this.$t("loadManagement.backup.title") },
 			];
 		},
 		loadpoints(): LoadLoadpoint[] {

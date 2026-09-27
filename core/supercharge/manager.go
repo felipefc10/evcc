@@ -86,14 +86,14 @@ type LpConfig struct {
 type Config struct {
 	Enabled bool `json:"enabled"`
 	// FailsafeA limits every loadpoint while load management is switched off, 0 for no limit
-	FailsafeA    float64             `json:"failsafeA"`
-	MeterURI     string              `json:"meterUri"`
-	Q            float64             `json:"q"`
-	K            float64             `json:"k"`
-	ContractKVA  float64             `json:"contractKva"`
-	Loadpoints   map[string]LpConfig `json:"loadpoints"`
-	Settings     Settings            `json:"settings"`
-	ImportedFrom string              `json:"importedFrom,omitempty"`
+	FailsafeA float64 `json:"failsafeA"`
+	// MeterURI is a Shelly EM read directly, empty uses evcc's grid meter
+	MeterURI    string              `json:"meterUri"`
+	Q           float64             `json:"q"`
+	K           float64             `json:"k"`
+	ContractKVA float64             `json:"contractKva"`
+	Loadpoints  map[string]LpConfig `json:"loadpoints"`
+	Settings    Settings            `json:"settings"`
 }
 
 // DefaultConfig returns the configuration used before anything was saved
@@ -144,6 +144,12 @@ type Store interface {
 // Subscriber subscribes to an MQTT topic
 type Subscriber func(topic string, cb func(string)) error
 
+// Plant is what the manager reads from the site
+type Plant struct {
+	Grid api.Meter      // evcc's grid meter, nil when none
+	PV   func() float64 // solar production in W, nil when no PV meter
+}
+
 type managedLp struct {
 	index int
 	name  string
@@ -178,18 +184,20 @@ type Manager struct {
 	store Store
 	sub   Subscriber
 	pub   func(string, any)
+	plant Plant
 
 	mu      sync.Mutex
 	cfg     Config
 	ctl     *Controller
 	learner *Learner
-	meter   *ShellyMeter
+	meter   Meter
 	lps     []*managedLp
 	start   time.Time
 
 	armed        bool
 	running      bool
 	armedWhy     string
+	unsupported  string // why the installation cannot be balanced, load management then acts as off
 	lastCharging time.Time
 	activeUntil  float64
 	pollMode     string
@@ -228,12 +236,13 @@ type Check struct {
 }
 
 // NewManager creates the manager. lps are in site order with their config names.
-func NewManager(log *util.Logger, store Store, sub Subscriber, pub func(string, any)) *Manager {
+func NewManager(log *util.Logger, store Store, sub Subscriber, pub func(string, any), plant Plant) *Manager {
 	m := &Manager{
 		log:      log,
 		store:    store,
 		sub:      sub,
 		pub:      pub,
+		plant:    plant,
 		cfg:      DefaultConfig(),
 		learner:  NewLearner(),
 		feeds:    map[string]feedValue{},
@@ -256,7 +265,7 @@ func NewManager(log *util.Logger, store Store, sub Subscriber, pub func(string, 
 
 	var raw json.RawMessage
 	if store != nil && store.Load(keyLearned, &raw) == nil && len(raw) > 0 {
-		if n, err := m.learner.Load(raw, nil); err != nil {
+		if n, err := m.learner.Load(raw); err != nil {
 			log.WARN.Printf("learned behaviour: %v", err)
 		} else {
 			log.INFO.Printf("learned behaviour for %d loadpoint/vehicle pairs", n)
@@ -268,8 +277,20 @@ func NewManager(log *util.Logger, store Store, sub Subscriber, pub func(string, 
 	}
 
 	m.ctl = NewController(m.cfg.Curve(), &m.cfg.Settings)
-	m.meter = NewShellyMeter(m.cfg.MeterURI)
+	m.meter = m.meterFor(m.cfg)
 	return m
+}
+
+// meterFor returns the reader of the configured meter
+func (m *Manager) meterFor(cfg Config) Meter {
+	switch {
+	case cfg.MeterURI != "":
+		return NewShellyMeter(cfg.MeterURI)
+	case m.plant.Grid != nil:
+		return NewGridMeter(m.plant.Grid)
+	default:
+		return noMeter{}
+	}
 }
 
 const (
@@ -311,7 +332,7 @@ func (m *Manager) Owns() bool {
 func (m *Manager) Clamp(name string, current, minA float64, enabled bool, offered float64) float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if !m.cfg.Enabled {
+	if !m.cfg.Enabled || m.unsupported != "" {
 		if m.cfg.FailsafeA > 0 {
 			return math.Min(current, math.Max(m.cfg.FailsafeA, minA))
 		}
@@ -412,9 +433,17 @@ func (m *Manager) standby(ctx context.Context) {
 		m.status = "load management is switched off"
 		return
 	}
+	states := make([]LpState, len(m.lps))
+	for i, l := range m.lps {
+		states[i] = l.lp.SuperchargeState()
+	}
+	if m.checkPhasesLocked(states) {
+		m.armedWhy = ""
+		m.status = m.unsupported
+		return
+	}
 	why := m.armedWhy
-	for _, l := range m.lps {
-		st := l.lp.SuperchargeState()
+	for _, st := range states {
 		if st.Charging {
 			why = "a loadpoint is charging"
 			break
@@ -458,6 +487,24 @@ func (m *Manager) scopeText() string {
 		}
 	}
 	return strings.Join(names, ", ")
+}
+
+// checkPhasesLocked refuses installations the single-phase trip model does not describe
+func (m *Manager) checkPhasesLocked(states []LpState) bool {
+	why := ""
+	for _, st := range states {
+		if st.Phases > 1 {
+			why = fmt.Sprintf("%s charges on %d phases: load management balances single-phase installations only, every loadpoint is held to the fail-safe limit", st.Title, st.Phases)
+			break
+		}
+	}
+	if why != m.unsupported {
+		if why != "" {
+			m.log.WARN.Println(why)
+		}
+		m.unsupported = why
+	}
+	return why != ""
 }
 
 // runArmed runs the control loop until it stands down
@@ -532,9 +579,17 @@ func (m *Manager) runArmed(ctx context.Context) {
 
 // step runs one control step
 func (m *Manager) step(ctx context.Context) {
+	m.mu.Lock()
+	meter := m.meter
+	m.mu.Unlock()
 	rctx, cancel := context.WithTimeout(ctx, 2500*time.Millisecond)
-	rd := m.meter.Read(rctx)
+	rd := meter.Read(rctx)
 	cancel()
+
+	var pvKVA float64
+	if m.plant.PV != nil {
+		pvKVA = math.Max(m.plant.PV(), 0) / 1000.0
+	}
 
 	states := make([]LpState, len(m.lps))
 	for i, l := range m.lps {
@@ -567,6 +622,11 @@ func (m *Manager) step(ctx context.Context) {
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if m.checkPhasesLocked(states) {
+		m.armed = false
+		m.status = m.unsupported
+		return
+	}
 	now := m.now()
 	m.heartbeat = time.Now()
 	m.lastReading = rd
@@ -662,6 +722,7 @@ func (m *Manager) step(ctx context.Context) {
 		SourceOhm:       m.learner.SourceOhm(),
 		TempC:           temp,
 		Volt:            230,
+		PvKVA:           pvKVA,
 	}
 	if ok {
 		sm.VaKVA, sm.Volt, sm.Watts, sm.Var = rd.VaKVA, UsableVolts(rd.Volts), rd.Watts, rd.Var
@@ -1216,19 +1277,24 @@ func (m *Manager) UpdateConfig(patch []byte) (Config, error) {
 		m.mu.Unlock()
 		return Config{}, err
 	}
-	next.sanitize()
+	m.applyConfigLocked(next)
+	res := m.cfg
+	m.mu.Unlock()
 
+	m.applied()
+	return res, nil
+}
+
+// applyConfigLocked replaces the configuration and applies it at once
+func (m *Manager) applyConfigLocked(next Config) {
+	next.sanitize()
 	wasEnabled := m.cfg.Enabled
 	// Settings is shared with the controller by pointer: copy in place
-	m.cfg.Enabled = next.Enabled
-	m.cfg.FailsafeA = next.FailsafeA
-	m.cfg.MeterURI = next.MeterURI
-	m.cfg.Q, m.cfg.K, m.cfg.ContractKVA = next.Q, next.K, next.ContractKVA
-	m.cfg.Loadpoints = next.Loadpoints
-	sc := m.cfg.Settings.Supercharge
-	m.cfg.Settings = next.Settings
-	m.cfg.Settings.Supercharge = sc
-	m.meter.URI = m.cfg.MeterURI
+	settings := next.Settings
+	next.Settings = Settings{}
+	m.cfg = next
+	m.cfg.Settings = settings
+	m.meter = m.meterFor(m.cfg)
 	m.ctl.SetCurve(m.cfg.Curve())
 	m.saveConfigLocked()
 	if wasEnabled != m.cfg.Enabled {
@@ -1239,13 +1305,89 @@ func (m *Manager) UpdateConfig(patch []byte) (Config, error) {
 			m.armed = false
 		}
 	}
-	res := m.cfg
-	m.mu.Unlock()
+}
 
+// applied lets the loop and the UI pick up a new configuration
+func (m *Manager) applied() {
 	m.subscribe()
 	m.kick()
 	m.publish()
-	return res, nil
+}
+
+const backupVersion = 1
+
+// Backup is everything load management keeps: installation, tuning, learned behaviour and bursts
+type Backup struct {
+	Version int             `json:"version"`
+	Config  Config          `json:"config"`
+	Learned json.RawMessage `json:"learned"`
+	Bursts  []BurstRecord   `json:"bursts"`
+}
+
+// Export returns everything load management keeps, for moving it to another installation
+func (m *Manager) Export() (Backup, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	learned, err := json.Marshal(m.learner)
+	if err != nil {
+		return Backup{}, err
+	}
+	cfg := m.cfg
+	cfg.Settings = m.cfg.Settings.Clone()
+	return Backup{Version: backupVersion, Config: cfg, Learned: learned, Bursts: slices.Clone(m.bursts)}, nil
+}
+
+// Import replaces everything load management keeps with an export
+func (m *Manager) Import(b Backup) error {
+	if b.Version != backupVersion {
+		return fmt.Errorf("unsupported export version %d", b.Version)
+	}
+	next := DefaultConfig()
+	raw, err := json.Marshal(b.Config)
+	if err != nil {
+		return err
+	}
+	// merged over the defaults, like a saved configuration
+	if err := json.Unmarshal(raw, &next); err != nil {
+		return fmt.Errorf("invalid settings: %w", err)
+	}
+	if next.Settings.Supercharge == nil {
+		next.Settings.Supercharge = map[string]int64{}
+	}
+	if err := next.Settings.Validate(); err != nil {
+		return err
+	}
+	learner := NewLearner()
+	learner.Warn = m.log.WARN.Printf
+	if len(b.Learned) > 0 {
+		n, err := learner.Load(b.Learned)
+		if err != nil {
+			return fmt.Errorf("learned behaviour: %w", err)
+		}
+		if n == 0 && string(b.Learned) != "null" {
+			var f learnFile
+			if json.Unmarshal(b.Learned, &f) == nil && len(f.Keys) > 0 {
+				return fmt.Errorf("learned behaviour: unsupported schema %d", f.Schema)
+			}
+		}
+	}
+
+	m.mu.Lock()
+	m.applyConfigLocked(next)
+	m.learner = learner
+	m.learner.Dirty = true
+	m.bursts = slices.Clone(b.Bursts)
+	if m.store != nil {
+		if err := m.store.Save(keyBursts, m.bursts); err != nil {
+			m.log.WARN.Printf("persist bursts: %v", err)
+		}
+	}
+	m.log.INFO.Printf("imported configuration, learned behaviour for %d loadpoint/vehicle pairs and %d bursts", len(m.learner.bags), len(m.bursts))
+	m.mu.Unlock()
+
+	m.saveLearned(true)
+	m.applied()
+	return nil
 }
 
 func deepMerge(dst, src map[string]any) {
@@ -1329,125 +1471,6 @@ func (m *Manager) SetSupercharge(index int, on bool, until int64) error {
 	m.kick()
 	m.publish()
 	return nil
-}
-
-// ImportAddon imports settings and learned behaviour of the Supercharging add-on.
-// names maps the add-on's loadpoint keys (lp1, lp2) to loadpoint config names.
-func (m *Manager) ImportAddon(settings map[string]any, learned json.RawMessage, names map[string]string) (int, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if settings != nil {
-		s := &m.cfg.Settings
-		f := func(k string, dst *float64) {
-			if v, ok := settings[k].(float64); ok {
-				*dst = v
-			}
-		}
-		i := func(k string, dst *int) {
-			if v, ok := settings[k].(float64); ok {
-				*dst = int(v)
-			}
-		}
-		str := func(k string, dst *string) {
-			if v, ok := settings[k].(string); ok {
-				*dst = v
-			}
-		}
-		f("burst_kva", &s.BurstKVA)
-		f("bump_kva", &s.BumpKVA)
-		f("margin_s", &s.MarginS)
-		f("reset_s", &s.ResetS)
-		f("max_closeness", &s.MaxCloseness)
-		f("exit_lead_frac", &s.ExitLeadFrac)
-		f("base_margin_kva", &s.BaseMarginKVA)
-		i("amp_min", &s.AmpMin)
-		i("amp_max", &s.AmpMax)
-		str("raise_table", &s.RaiseTable)
-		str("reduce_table", &s.ReduceTable)
-		f("floor_dwell_s", &s.FloorDwellS)
-		f("restart_dwell_s", &s.RestartDwellS)
-		i("blind_hold_polls", &s.BlindHoldPolls)
-		i("blind_polls", &s.BlindPolls)
-		str("blind_action", &s.BlindAction)
-		i("blind_hold_a", &s.BlindHoldA)
-		f("base_abort_closeness", &s.BaseAbortCloseness)
-		f("base_stop_closeness", &s.BaseStopCloseness)
-		f("base_ti_abort_s", &s.BaseTiAbortS)
-		f("base_ti_stop_s", &s.BaseTiStopS)
-		f("trim_max_a", &s.TrimMaxA)
-		f("max_temp_c", &s.MaxTempC)
-		// ticks and their deadlines, only when the import carries them: leaving them out keeps the current ones
-		if scope, ok := settings["supercharge_scope"].(string); ok {
-			untils, _ := settings["burst_until_by_key"].(string)
-			dl := map[string]int64{}
-			for part := range strings.SplitSeq(strings.ReplaceAll(untils, ";", ","), ",") {
-				k, v, _ := strings.Cut(strings.TrimSpace(part), ":")
-				if at, err := strconv.ParseFloat(strings.TrimSpace(v), 64); err == nil && at > 0 {
-					dl[strings.TrimSpace(k)] = int64(at)
-				}
-			}
-			s.Supercharge = map[string]int64{}
-			for part := range strings.SplitSeq(scope, ",") {
-				k := strings.TrimSpace(part)
-				if k == "" {
-					continue
-				}
-				if k == "all" {
-					for from, to := range names {
-						s.Supercharge[to] = dl[from]
-					}
-					continue
-				}
-				if to, ok := names[k]; ok {
-					s.Supercharge[to] = dl[k]
-				}
-			}
-			for k, v := range s.Supercharge {
-				if v > 0 && v <= time.Now().Unix() {
-					delete(s.Supercharge, k)
-				}
-			}
-		}
-		if q, ok := settings["icp_q"].(float64); ok {
-			m.cfg.Q = q
-		}
-		if k, ok := settings["icp_k"].(float64); ok {
-			m.cfg.K = k
-		}
-		if c, ok := settings["contracted_kva"].(float64); ok {
-			m.cfg.ContractKVA = c
-		}
-		if u, ok := settings["meter_url"].(string); ok && u != "" {
-			m.cfg.MeterURI = u
-		}
-		m.cfg.ImportedFrom = "Supercharging add-on, " + time.Now().Format("2 Jan 2006 15:04")
-		sc := s.Supercharge
-		m.cfg.sanitize()
-		m.cfg.Settings.Supercharge = sc
-		m.meter.URI = m.cfg.MeterURI
-		m.ctl.SetCurve(m.cfg.Curve())
-		m.saveConfigLocked()
-	}
-	n := 0
-	if len(learned) > 0 {
-		var err error
-		n, err = m.learner.Load(learned, func(k string) string {
-			lp, veh, found := strings.Cut(k, ":")
-			if to, ok := names[lp]; ok {
-				lp = to
-			}
-			if !found {
-				veh = "?"
-			}
-			return LearnKey(lp, veh)
-		})
-		if err != nil {
-			return 0, err
-		}
-		m.learner.Dirty = true
-	}
-	go m.saveLearned(true)
-	return n, nil
 }
 
 // Bursts returns the burst log, newest last
