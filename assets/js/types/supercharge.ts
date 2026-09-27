@@ -190,7 +190,6 @@ export interface LoadConfig {
   contractKva: number;
   loadpoints: Record<string, LoadLpConfig>;
   settings: LoadSettings;
-  importedFrom?: string;
 }
 
 export interface BurstRecord {
