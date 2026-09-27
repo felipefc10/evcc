@@ -7,6 +7,7 @@ import (
 	"maps"
 	"math"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -416,15 +417,15 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 	m.mu.Lock()
 	m.checks = checks
 	m.checkedAt = time.Now()
-	failed := 0
+	var failed []string
 	for _, c := range checks {
 		if !c.OK {
-			failed++
+			failed = append(failed, c.Name+": "+c.Detail)
 		}
 	}
 	m.mu.Unlock()
-	if failed > 0 {
-		m.log.WARN.Printf("self-test: %d of %d checks failed", failed, len(checks))
+	if len(failed) > 0 {
+		m.log.WARN.Printf("self-test: %d of %d checks failed: %s", len(failed), len(checks), strings.Join(failed, "; "))
 	} else {
 		m.log.INFO.Printf("self-test passed (%d checks)", len(checks))
 	}
