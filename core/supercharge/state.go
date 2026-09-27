@@ -148,7 +148,7 @@ func (m *Manager) stateLocked() State {
 
 	st := State{
 		Enabled:    c.Enabled,
-		Configured: c.MeterURI != "",
+		Configured: c.MeterURI != "" || m.plant.Grid != nil,
 		Armed:      m.armed,
 		Running:    running,
 		Status:     m.status,
@@ -335,7 +335,8 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 	cfg := m.cfg
 	cfg.Settings = m.cfg.Settings.Clone()
 	lps := m.lps
-	running := m.running
+	meter := m.meter
+	unsupported := m.unsupported
 	m.mu.Unlock()
 
 	var checks []Check
@@ -348,19 +349,29 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 
 	add("Load management", cfg.Enabled, "%s", map[bool]string{true: "switched on", false: "switched off: nothing holds the house under the never-trip line"}[cfg.Enabled])
 
-	if cfg.MeterURI == "" {
-		add("Meter", false, "no meter configured")
-	} else {
-		rctx, cancel := context.WithTimeout(ctx, 3*time.Second)
-		rd := NewShellyMeter(cfg.MeterURI).Read(rctx)
-		cancel()
-		if rd.OK {
-			add("Meter", true, "%.2f kVA (%.0f W, %.0f var) at %.1f V", rd.VaKVA, rd.Watts, rd.Var, UsableVolts(rd.Volts))
-			add("Meter latency", rd.Latency < 500*time.Millisecond, "%d ms", rd.Latency.Milliseconds())
-			add("Reactive power", rd.Var != 0, "%s", map[bool]string{true: "reported, apparent power is computed properly", false: "not reported, apparent power equals real power"}[rd.Var != 0])
+	rctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	rd := meter.Read(rctx)
+	cancel()
+	source := "evcc grid meter"
+	if cfg.MeterURI != "" {
+		source = "Shelly EM"
+	}
+	if rd.OK {
+		add("Meter", true, "%s: %.2f kVA (%.0f W, %.0f var) at %.1f V", source, rd.VaKVA, rd.Watts, rd.Var, UsableVolts(rd.Volts))
+		add("Meter latency", rd.Latency < 500*time.Millisecond, "%d ms", rd.Latency.Milliseconds())
+		if rd.Var != 0 {
+			add("Reactive power", true, "reported, apparent power is computed properly")
 		} else {
-			add("Meter", false, "%v", rd.Err)
+			note("Reactive power", "not reported, apparent power is taken as real power: keep the base margin above the reactive share")
 		}
+	} else {
+		add("Meter", false, "%s: %v", source, rd.Err)
+	}
+	if m.plant.PV != nil {
+		note("Solar", "evcc measures PV: cars may use it on top of the never-trip line")
+	}
+	if unsupported != "" {
+		add("Phases", false, "%s", unsupported)
 	}
 
 	cv := cfg.Curve()
@@ -410,7 +421,6 @@ func (m *Manager) Selftest(ctx context.Context) []Check {
 	// listed even with no car supercharging, so the list keeps its shape
 	add("Burst window", window >= 5.0 || !s.AnySupercharge(), "%.1f s at %.2f kVA, with room for %.2f kVA more house load and %.0f s to spare", window, s.BurstKVA, s.BumpKVA, s.MarginS)
 	add("Safety backstop", s.BaseStopCloseness > s.BaseAbortCloseness, "cars go to minimum at %.0f %% and stop at %.0f %% breaker budget", s.BaseAbortCloseness*100, s.BaseStopCloseness*100)
-	_ = running
 
 	m.mu.Lock()
 	m.checks = checks

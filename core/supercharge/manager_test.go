@@ -26,7 +26,7 @@ func (s memStore) Save(key string, v any) error {
 
 func newTestManager(t *testing.T) *Manager {
 	t.Helper()
-	return NewManager(util.NewLogger("test"), memStore{}, nil, func(string, any) {})
+	return NewManager(util.NewLogger("test"), memStore{}, nil, func(string, any) {}, Plant{})
 }
 
 func TestClampFailsafeWhileOff(t *testing.T) {

@@ -1470,8 +1470,8 @@
       "general": "Installation",
       "enabled": "Whole-house load management",
       "enabledHelp": "Keeps the house under the never-trip line and shares power by charging order. When off, every loadpoint is capped instead.",
-      "meterUri": "Meter address",
-      "meterUriHelp": "Shelly EM channel, e.g. http://192.168.1.10/emeter/0. Read directly once a second while balancing.",
+      "meterUri": "Meter",
+      "meterUriHelp": "Empty uses evcc's grid meter, read once a second while balancing. A Shelly EM address (Gen1 http://…/emeter/0 or Gen2 http://…/rpc/EM1.GetStatus?id=0) is read directly instead and also reports reactive power.",
       "saved": "Saved",
       "clamped": "Limited to {value}",
       "normalised": "Saved as {value}",
@@ -1660,7 +1660,8 @@
       "notSet": "Not set",
       "unitReadings": "readings",
       "fastOf": "{name} fast charger",
-      "undoWas": "Undo (was {value})"
+      "undoWas": "Undo (was {value})",
+      "meterUriPlaceholder": "evcc grid meter"
     },
     "bursts": {
       "title": "Burst history",
@@ -1804,49 +1805,16 @@
       "lineShort": "line",
       "budget": "Breaker budget {pct} % used"
     },
-    "import": {
-      "title": "Import from the add-on",
-      "subtitle": "Tuning, supercharge settings and learned behavior from the Supercharging add‑on",
-      "already": "Last imported from: {from}.",
-      "files": "Add-on files",
-      "filesHelp": "Choose settings.json, options.json and learn.json from the add-on's data folder. Any of them on its own works too.",
-      "kind": {
-        "settings": "tuning",
-        "options": "installation",
-        "learned": "learned behavior",
-        "unknown": "not an add-on file, ignored | not add-on files, ignored"
-      },
-      "mapTitle": "Loadpoints",
-      "mapHelp": "Match each add-on loadpoint to a loadpoint here.",
-      "skip": "Don't import",
-      "run": "Import",
-      "replaces": "Replaces the current tuning and learned behavior.",
-      "done": "Applied {what}. Load management uses them from now on.",
-      "again": "Import again",
-      "apply": "Apply {what}",
-      "changes": "What changes",
-      "learnedPairs": "Learned behavior for {n} car is replaced. | Learned behavior for {n} cars is replaced.",
-      "noChanges": "No setting differs from what evcc already uses.",
-      "nothing": "{files}: not an add-on file. Choose settings.json, options.json or learn.json.",
-      "other": "Choose other files",
-      "read": "Read {files}.",
-      "runtime": "Turn supercharge back on for {names}, as in the add-on",
-      "same": "{n} other value is the same in both. | {n} other values are the same in both.",
-      "to": "to",
-      "step": {
-        "files": "Files",
-        "review": "Review",
-        "done": "Done"
-      },
-      "stepOf": "Step {n} of {total}: {name}",
-      "choose": "Choose files",
-      "nChanges": "{n} change | {n} changes",
-      "nPairs": "learned behavior for {n} car | learned behavior for {n} cars",
-      "and": "and",
-      "addonLoadpoint": "Add-on loadpoint {n}",
-      "lineMove": "This moves the never-trip line from {from} to {to} kVA.",
-      "lineConfirm": "Move the never-trip line to {to} kVA",
-      "addonNamed": "Add-on loadpoint “{key}”"
+    "backup": {
+      "title": "Export and import",
+      "subtitle": "Move load management to another evcc",
+      "help": "The file holds the installation, every setting, the learned behavior and the burst log. Importing it replaces all of them here.",
+      "export": "Export",
+      "import": "Import…",
+      "confirm": "Replace the installation, settings, learned behavior and burst log with {file}?",
+      "replace": "Replace",
+      "done": "Imported. Load management uses it from now on.",
+      "invalid": "Not a load management export."
     },
     "alert": {
       "offTitle": "Load management is off",

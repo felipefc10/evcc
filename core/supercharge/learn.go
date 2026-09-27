@@ -370,17 +370,16 @@ func (l *Learner) MarshalJSON() ([]byte, error) {
 	return json.Marshal(learnFile{Schema: LearnSchema, Ohms: l.ohms, EntriesRetired: l.retired, Keys: l.bags})
 }
 
-// Load restores observations. keyMap renames keys (e.g. imported add-on keys), may be nil.
-// Returns the number of keys loaded.
-func (l *Learner) Load(data []byte, keyMap func(string) string) (int, error) {
+// Load restores observations and returns the number of keys loaded
+func (l *Learner) Load(data []byte) (int, error) {
 	var f learnFile
 	if err := json.Unmarshal(data, &f); err != nil {
 		return 0, err
 	}
-	if f.Schema != LearnSchema && !(f.Schema >= 5 && f.Schema <= 8) {
+	if f.Schema != LearnSchema {
 		return 0, nil
 	}
-	dropEntries := f.Schema >= 5 && f.Schema <= 8
+	dropEntries := false
 	l.ohms = nil
 	for _, v := range f.Ohms {
 		l.ohms = push(l.ohms, v)
@@ -394,9 +393,6 @@ func (l *Learner) Load(data []byte, keyMap func(string) string) (int, error) {
 	for k, b := range f.Keys {
 		if b == nil {
 			continue
-		}
-		if keyMap != nil {
-			k = keyMap(k)
 		}
 		nb := &bag{Label: b.Label}
 		for _, v := range b.Ups {

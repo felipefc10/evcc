@@ -1470,8 +1470,8 @@
       "general": "Installation",
       "enabled": "Lastmanagement für das ganze Haus",
       "enabledHelp": "Hält das Haus unter der Auslösegrenze und verteilt Leistung nach Ladereihenfolge. Ausgeschaltet wird stattdessen jeder Ladepunkt begrenzt.",
-      "meterUri": "Zähleradresse",
-      "meterUriHelp": "Shelly-EM-Kanal, z. B. http://192.168.1.10/emeter/0. Wird beim Ausgleich direkt einmal pro Sekunde gelesen.",
+      "meterUri": "Zähler",
+      "meterUriHelp": "Leer nutzt den Netzzähler von evcc, beim Ausgleich einmal pro Sekunde gelesen. Eine Shelly-EM-Adresse (Gen1 http://…/emeter/0 oder Gen2 http://…/rpc/EM1.GetStatus?id=0) wird stattdessen direkt gelesen und liefert auch die Blindleistung.",
       "saved": "Gespeichert",
       "clamped": "Begrenzt auf {value}",
       "normalised": "Gespeichert als {value}",
@@ -1660,7 +1660,8 @@
       "notSet": "Nicht gesetzt",
       "unitReadings": "Werte",
       "fastOf": "{name} schnelle Wallbox",
-      "undoWas": "Rückgängig (war {value})"
+      "undoWas": "Rückgängig (war {value})",
+      "meterUriPlaceholder": "Netzzähler von evcc"
     },
     "bursts": {
       "title": "Boost-Verlauf",
@@ -1804,49 +1805,16 @@
       "lineShort": "Grenze",
       "budget": "Sicherungsbudget {pct} % genutzt"
     },
-    "import": {
-      "title": "Aus dem Add-on importieren",
-      "subtitle": "Abstimmung, Supercharge-Einstellungen und Gelerntes aus dem Supercharging-Add‑on",
-      "already": "Zuletzt importiert aus: {from}.",
-      "files": "Add-on-Dateien",
-      "filesHelp": "settings.json, options.json und learn.json aus dem Datenordner des Add-ons wählen. Jede Datei geht auch einzeln.",
-      "kind": {
-        "settings": "Abstimmung",
-        "options": "Installation",
-        "learned": "Gelerntes Verhalten",
-        "unknown": "keine Add-on-Datei, ignoriert | keine Add-on-Dateien, ignoriert"
-      },
-      "mapTitle": "Ladepunkte",
-      "mapHelp": "Welcher evcc-Ladepunkt jeder Add-on-Ladepunkt war.",
-      "skip": "Nicht importieren",
-      "run": "Importieren",
-      "replaces": "Ersetzt die aktuelle Abstimmung und das Gelernte.",
-      "done": "{what} übernommen. Das Lastmanagement nutzt sie ab jetzt.",
-      "again": "Erneut importieren",
-      "apply": "{what} übernehmen",
-      "changes": "Was sich ändert",
-      "learnedPairs": "Gelerntes Verhalten für {n} Auto wird ersetzt. | Gelerntes Verhalten für {n} Autos wird ersetzt.",
-      "noChanges": "Keine Einstellung weicht von evcc ab.",
-      "nothing": "{files}: keine Add-on-Datei. Wähle settings.json, options.json oder learn.json.",
-      "other": "Andere Dateien wählen",
-      "read": "{files} gelesen.",
-      "runtime": "Supercharge für {names} wieder einschalten, wie im Add-on",
-      "same": "{n} weiterer Wert ist in beiden gleich. | {n} weitere Werte sind in beiden gleich.",
-      "to": "auf",
-      "step": {
-        "files": "Dateien",
-        "review": "Prüfen",
-        "done": "Fertig"
-      },
-      "stepOf": "Schritt {n} von {total}: {name}",
-      "choose": "Dateien wählen",
-      "nChanges": "{n} Änderung | {n} Änderungen",
-      "nPairs": "gelerntes Verhalten für {n} Auto | gelerntes Verhalten für {n} Autos",
-      "and": "und",
-      "addonLoadpoint": "Add-on-Ladepunkt {n}",
-      "lineMove": "Das verschiebt die Auslösegrenze von {from} auf {to} kVA.",
-      "lineConfirm": "Auslösegrenze auf {to} kVA verschieben",
-      "addonNamed": "Add-on-Ladepunkt „{key}“"
+    "backup": {
+      "title": "Export und Import",
+      "subtitle": "Lastmanagement auf ein anderes evcc übertragen",
+      "help": "Die Datei enthält die Installation, alle Einstellungen, das gelernte Verhalten und das Burst-Protokoll. Ein Import ersetzt all das hier.",
+      "export": "Exportieren",
+      "import": "Importieren…",
+      "confirm": "Installation, Einstellungen, gelerntes Verhalten und Burst-Protokoll durch {file} ersetzen?",
+      "replace": "Ersetzen",
+      "done": "Importiert. Das Lastmanagement nutzt es ab sofort.",
+      "invalid": "Kein Export des Lastmanagements."
     },
     "alert": {
       "offTitle": "Lastmanagement ist aus",

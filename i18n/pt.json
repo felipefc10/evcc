@@ -1411,8 +1411,8 @@
       "general": "Instalação",
       "enabled": "Gestão de carga da casa",
       "enabledHelp": "Mantém a casa abaixo da linha de não-disparo e reparte a potência pela ordem de carregamento. Desligada, cada ponto de carga fica limitado.",
-      "meterUri": "Endereço do contador",
-      "meterUriHelp": "Canal do Shelly EM, p. ex. http://192.168.1.10/emeter/0. Lido diretamente uma vez por segundo durante o equilíbrio.",
+      "meterUri": "Contador",
+      "meterUriHelp": "Vazio usa o contador da rede do evcc, lido uma vez por segundo durante o equilíbrio. Um endereço Shelly EM (Gen1 http://…/emeter/0 ou Gen2 http://…/rpc/EM1.GetStatus?id=0) é lido diretamente e também indica a potência reativa.",
       "saved": "Guardado",
       "clamped": "Limitado a {value}",
       "normalised": "Guardado como {value}",
@@ -1601,7 +1601,8 @@
       "notSet": "Não definido",
       "unitReadings": "leituras",
       "fastOf": "Carregador rápido {name}",
-      "undoWas": "Anular (era {value})"
+      "undoWas": "Anular (era {value})",
+      "meterUriPlaceholder": "contador da rede do evcc"
     },
     "bursts": {
       "title": "Histórico de picos",
@@ -1745,49 +1746,16 @@
       "lineShort": "linha",
       "budget": "Orçamento do disjuntor {pct} % usado"
     },
-    "import": {
-      "title": "Importar do add-on",
-      "subtitle": "Afinação, definições de supercharge e comportamento aprendido do add‑on Supercharging",
-      "already": "Última importação de: {from}.",
-      "files": "Ficheiros do add-on",
-      "filesHelp": "Escolha settings.json, options.json e learn.json da pasta de dados do add-on. Cada um também funciona sozinho.",
-      "kind": {
-        "settings": "afinação",
-        "options": "instalação",
-        "learned": "comportamento aprendido",
-        "unknown": "não é um ficheiro do add-on, ignorado | não são ficheiros do add-on, ignorados"
-      },
-      "mapTitle": "Pontos de carga",
-      "mapHelp": "Que ponto de carga do evcc era cada ponto de carga do add-on.",
-      "skip": "Não importar",
-      "run": "Importar",
-      "replaces": "Substitui a afinação atual e o comportamento aprendido.",
-      "done": "Aplicado: {what}. A gestão de carga usa-os a partir de agora.",
-      "again": "Importar de novo",
-      "apply": "Aplicar {what}",
-      "changes": "O que muda",
-      "learnedPairs": "O comportamento aprendido de {n} carro é substituído. | O comportamento aprendido de {n} carros é substituído.",
-      "noChanges": "Nenhuma definição difere do que o evcc já usa.",
-      "nothing": "{files}: não é um ficheiro do add-on. Escolhe settings.json, options.json ou learn.json.",
-      "other": "Escolher outros ficheiros",
-      "read": "Lidos: {files}.",
-      "runtime": "Voltar a ligar a supercarga para {names}, como no add-on",
-      "same": "{n} outro valor é igual em ambos. | {n} outros valores são iguais em ambos.",
-      "to": "para",
-      "step": {
-        "files": "Ficheiros",
-        "review": "Rever",
-        "done": "Concluído"
-      },
-      "stepOf": "Passo {n} de {total}: {name}",
-      "choose": "Escolher ficheiros",
-      "nChanges": "{n} alteração | {n} alterações",
-      "nPairs": "comportamento aprendido de {n} carro | comportamento aprendido de {n} carros",
-      "and": "e",
-      "addonLoadpoint": "Ponto de carga {n} do add-on",
-      "lineMove": "Isto move a linha de não-disparo de {from} para {to} kVA.",
-      "lineConfirm": "Mover a linha de não-disparo para {to} kVA",
-      "addonNamed": "Ponto de carga do add-on “{key}”"
+    "backup": {
+      "title": "Exportar e importar",
+      "subtitle": "Levar a gestão de carga para outro evcc",
+      "help": "O ficheiro contém a instalação, todas as definições, o comportamento aprendido e o registo de bursts. Importá-lo substitui tudo isso aqui.",
+      "export": "Exportar",
+      "import": "Importar…",
+      "confirm": "Substituir a instalação, as definições, o comportamento aprendido e o registo de bursts por {file}?",
+      "replace": "Substituir",
+      "done": "Importado. A gestão de carga usa-o a partir de agora.",
+      "invalid": "Não é uma exportação da gestão de carga."
     },
     "alert": {
       "offTitle": "A gestão de carga está desligada",
