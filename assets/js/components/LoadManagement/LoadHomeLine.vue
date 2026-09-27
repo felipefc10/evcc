@@ -65,6 +65,7 @@
 import { defineComponent, type PropType } from "vue";
 import formatter from "@/mixins/formatter";
 import type { LoadState } from "@/types/supercharge";
+import { loadPhase, rulerMax } from "./state";
 
 // The whole of load management on the home page: one line under the energy flow.
 export default defineComponent({
@@ -83,18 +84,8 @@ export default defineComponent({
 		line(): string {
 			return this.fmtNumber(this.state.thresholdKva || 0, 2);
 		},
-		// a fixed ruler up past the burst target, so the line mark never moves
 		scaleMax(): number {
-			const s = this.state;
-			return Math.max(s.thresholdKva * 1.3, (s.burstKva || 0) * 1.05, 0.1);
-		},
-		supercharging(): boolean {
-			return (this.state.loadpoints || []).some((lp) => lp.supercharge);
-		},
-		superchargeDrawing(): boolean {
-			return (this.state.loadpoints || []).some(
-				(lp) => lp.supercharge && !lp.paused && lp.setpointA > 0
-			);
+			return rulerMax(this.state);
 		},
 		linePct(): number {
 			return Math.min(100, (100 * this.state.thresholdKva) / this.scaleMax);
@@ -109,17 +100,10 @@ export default defineComponent({
 		failed(): number {
 			return (this.state.checks || []).filter((c) => !c.ok).length;
 		},
+		// failed checks show only when nothing more pressing does
 		phase(): string {
-			const s = this.state;
-			if (!s.enabled) return "off";
-			if (!s.running) return "standby";
-			if (s.blind > 0) return "blind";
-			if (s.phase === "burst") return "burst";
-			// between bursts of a supercharge the house may sit above the line on purpose
-			if (this.superchargeDrawing) return "supercharge";
-			if (s.vaKva > s.thresholdKva) return "over";
-			if (this.failed) return "attention";
-			return "base";
+			const phase = loadPhase(this.state);
+			return phase === "base" && this.failed ? "attention" : phase;
 		},
 		// the breaker budget in use, shown only while the meter is spending it
 		budgetPct(): number {

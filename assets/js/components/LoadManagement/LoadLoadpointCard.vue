@@ -35,8 +35,8 @@
 					<span class="swatch" :style="{ background: color }"></span>
 					<span class="title-text">{{ lp.title }}</span>
 				</h3>
-				<div v-if="placeLine" class="place-row">
-					<span class="sub">{{ placeLine }}</span>
+				<div v-if="place" class="place-row">
+					<span class="sub">{{ place }}</span>
 					<button
 						v-if="canFirst"
 						type="button"
@@ -163,6 +163,7 @@ import { defineComponent, type PropType } from "vue";
 import formatter from "@/mixins/formatter";
 import SuperchargePill from "./SuperchargePill.vue";
 import { loadpointReason, waitReason } from "./loadpointReason";
+import { superchargeBursting, superchargePaused } from "./state";
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 
 // One loadpoint in the charging order: where it stands, what it is allowed and why,
@@ -183,27 +184,14 @@ export default defineComponent({
 	},
 	emits: ["open-supercharge", "move", "grip", "set-priority", "charge-first"],
 	computed: {
-		placeLine(): string {
-			return this.place;
-		},
 		warning(): boolean {
 			return (this.lp.paused && this.lp.measuredA > 0.5) || this.lp.stoodOffS > 0;
 		},
 		bursting(): boolean {
-			return (
-				this.state.running &&
-				this.state.phase === "burst" &&
-				this.lp.supercharge &&
-				!this.lp.paused
-			);
+			return superchargeBursting(this.lp, this.state);
 		},
-		// supercharge is on but cannot burst right now
 		paused(): boolean {
-			const s = this.state;
-			return (
-				this.lp.supercharge &&
-				(!!s.burstStoodDown || s.blind > 0 || s.tempBlock || this.lp.paused)
-			);
+			return superchargePaused(this.lp, this.state);
 		},
 		normal(): boolean {
 			const lp = this.lp;
@@ -467,11 +455,10 @@ export default defineComponent({
 }
 .stepper-value {
 	min-width: 2rem;
-	line-height: 2.5rem !important;
+	line-height: 2.5rem;
 	text-align: center;
 	font-weight: 700;
 	font-variant-numeric: tabular-nums;
-	line-height: 2.25rem;
 	border-left: 1px solid var(--evcc-gray-25);
 	border-right: 1px solid var(--evcc-gray-25);
 }
@@ -492,10 +479,6 @@ export default defineComponent({
 	.stepper button {
 		width: 2.75rem;
 		height: 2.75rem;
-	}
-
-	.stepper-value {
-		line-height: 2.75rem;
 	}
 }
 @media (prefers-reduced-motion: reduce) {

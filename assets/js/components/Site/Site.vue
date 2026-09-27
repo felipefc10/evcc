@@ -83,7 +83,7 @@ import collector from "@/mixins/collector.ts";
 import WelcomeIcons from "./WelcomeIcons.vue";
 import LoadHomeLine from "../LoadManagement/LoadHomeLine.vue";
 import SuperchargeModal from "../LoadManagement/SuperchargeModal.vue";
-import type { LoadState } from "@/types/supercharge";
+import type { LoadState, SuperchargeRequest } from "@/types/supercharge";
 import { defineComponent, type PropType } from "vue";
 import type {
 	AuthProviders,
@@ -212,15 +212,10 @@ export default defineComponent({
 		},
 	},
 	methods: {
-		openSupercharge(e: {
-			index: number;
-			title: string;
-			active: boolean;
-			until: string | null;
-		}) {
+		openSupercharge(req: SuperchargeRequest) {
 			(
 				this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal> | undefined
-			)?.open(e.index, e.title, e.active, e.until);
+			)?.open(req);
 		},
 		selectedLoadpointChanged(id: string | undefined) {
 			this.$router.push({ query: { lp: id } });

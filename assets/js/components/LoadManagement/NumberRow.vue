@@ -218,8 +218,4 @@ export default defineComponent({
 .input-bad {
 	border-color: var(--bs-danger);
 }
-.reset {
-	font-size: 0.75rem;
-	color: var(--evcc-default-text);
-}
 </style>

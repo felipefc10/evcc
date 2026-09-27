@@ -2,6 +2,7 @@ package supercharge
 
 import (
 	"encoding/json"
+	"maps"
 	"math"
 	"slices"
 	"sort"
@@ -75,23 +76,32 @@ func push(s []float64, v float64) []float64 {
 	return s
 }
 
+func pushAll(s, values []float64) []float64 {
+	for _, v := range values {
+		s = push(s, v)
+	}
+	return s
+}
+
+// quantile returns the value at fraction frac of the sorted values, which must not be empty
+func quantile(values []float64, frac float64) float64 {
+	o := slices.Clone(values)
+	sort.Float64s(o)
+	return o[min(len(o)-1, int(float64(len(o))*frac))]
+}
+
 func slowQ(values []float64, margin float64) float64 {
 	if len(values) < learnMinSamples {
 		return 0
 	}
-	o := slices.Clone(values)
-	sort.Float64s(o)
-	q := o[int(float64(len(o))*0.2)]
-	return math.Max(q*margin, 0.1)
+	return math.Max(quantile(values, 0.2)*margin, 0.1)
 }
 
 func timidQ(values []float64, margin float64) float64 {
 	if len(values) < learnMinSamples {
 		return 0
 	}
-	o := slices.Clone(values)
-	sort.Float64s(o)
-	q := o[int(float64(len(o))*0.2)]
+	q := quantile(values, 0.2)
 	if q > 0 {
 		q *= margin
 	}
@@ -102,10 +112,7 @@ func lateQ(values []float64, margin float64) float64 {
 	if len(values) < learnMinSamples {
 		return 0
 	}
-	o := slices.Clone(values)
-	sort.Float64s(o)
-	q := o[min(len(o)-1, int(float64(len(o))*0.8))]
-	return q / math.Max(margin, 0.05)
+	return quantile(values, 0.8) / math.Max(margin, 0.05)
 }
 
 // Learner holds learned behaviour per loadpoint+vehicle key
@@ -229,10 +236,7 @@ func (l *Learner) SourceOhm() float64 {
 	if len(l.ohms) < learnMinSamples {
 		return 0
 	}
-	o := slices.Clone(l.ohms)
-	sort.Float64s(o)
-	q := o[int(float64(len(o))*0.2)]
-	return math.Max(math.Min(q, learnMaxSourceOhm), 0.0)
+	return math.Max(math.Min(quantile(l.ohms, 0.2), learnMaxSourceOhm), 0.0)
 }
 
 // Entry records one burst entry shortfall observation
@@ -346,13 +350,8 @@ func (l *Learner) ForgetWarnings() {
 
 // All returns every learned behaviour sorted by key
 func (l *Learner) All() []Behaviour {
-	keys := make([]string, 0, len(l.bags))
-	for k := range l.bags {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	res := make([]Behaviour, 0, len(keys))
-	for _, k := range keys {
+	res := make([]Behaviour, 0, len(l.bags))
+	for _, k := range slices.Sorted(maps.Keys(l.bags)) {
 		res = append(res, l.Behaviour(k))
 	}
 	return res
@@ -380,10 +379,7 @@ func (l *Learner) Load(data []byte) (int, error) {
 		return 0, nil
 	}
 	dropEntries := false
-	l.ohms = nil
-	for _, v := range f.Ohms {
-		l.ohms = push(l.ohms, v)
-	}
+	l.ohms = pushAll(nil, f.Ohms)
 	l.retired = f.EntriesRetired
 	if !l.retired && l.SourceOhm() > 0.0 {
 		dropEntries = true
@@ -394,23 +390,15 @@ func (l *Learner) Load(data []byte) (int, error) {
 		if b == nil {
 			continue
 		}
-		nb := &bag{Label: b.Label}
-		for _, v := range b.Ups {
-			nb.Ups = push(nb.Ups, v)
-		}
-		for _, v := range b.Downs {
-			nb.Downs = push(nb.Downs, v)
-		}
-		for _, v := range b.LatsUp {
-			nb.LatsUp = push(nb.LatsUp, v)
-		}
-		for _, v := range b.LatsDown {
-			nb.LatsDown = push(nb.LatsDown, v)
+		nb := &bag{
+			Label:    b.Label,
+			Ups:      pushAll(nil, b.Ups),
+			Downs:    pushAll(nil, b.Downs),
+			LatsUp:   pushAll(nil, b.LatsUp),
+			LatsDown: pushAll(nil, b.LatsDown),
 		}
 		if !dropEntries {
-			for _, v := range b.Entries {
-				nb.Entries = push(nb.Entries, v)
-			}
+			nb.Entries = pushAll(nil, b.Entries)
 		}
 		l.bags[k] = nb
 	}

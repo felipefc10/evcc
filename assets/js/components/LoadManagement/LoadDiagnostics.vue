@@ -116,26 +116,11 @@
 		<details class="support evcc-card round-box p-3 p-sm-4" data-testid="load-support">
 			<summary>{{ $t("loadManagement.diagnostics.support") }}</summary>
 			<p class="small text-muted mt-2">{{ $t("loadManagement.diagnostics.supportHelp") }}</p>
-			<section class="support-section">
-				<h3 class="section-title">{{ $t("loadManagement.diagnostics.control") }}</h3>
-				<p class="section-help">{{ $t("loadManagement.diagnostics.controlHelp") }}</p>
-				<div
-					class="row row-cols-2 row-cols-xl-4 g-3 small"
-					data-testid="load-control-facts"
-				>
-					<div v-for="f in controlFacts" :key="f.label" class="col">
-						<div class="fact-label">{{ f.label }}</div>
-						<div class="fact-value">{{ f.value }}</div>
-						<div v-if="f.title" class="fact-help">{{ f.title }}</div>
-					</div>
-				</div>
-			</section>
-
-			<section class="support-section">
-				<h3 class="section-title">{{ $t("loadManagement.diagnostics.sensors") }}</h3>
-				<p class="section-help">{{ $t("loadManagement.diagnostics.sensorsHelp") }}</p>
-				<div class="row row-cols-2 row-cols-xl-4 g-3 small">
-					<div v-for="f in sensorFacts" :key="f.label" class="col">
+			<section v-for="sec in factSections" :key="sec.id" class="support-section">
+				<h3 class="section-title">{{ sec.title }}</h3>
+				<p class="section-help">{{ sec.help }}</p>
+				<div class="row row-cols-2 row-cols-xl-4 g-3 small" :data-testid="sec.testid">
+					<div v-for="f in sec.facts" :key="f.label" class="col">
 						<div class="fact-label">{{ f.label }}</div>
 						<div class="fact-value">{{ f.value }}</div>
 						<div v-if="f.title" class="fact-help">{{ f.title }}</div>
@@ -200,7 +185,14 @@ import api from "@/api";
 import formatter from "@/mixins/formatter";
 import Card from "../Helper/Card.vue";
 import { fmtDayShort } from "./format";
+import { errorText } from "./state";
 import type { LoadBehaviour, LoadCheck, LoadState } from "@/types/supercharge";
+
+interface Fact {
+	label: string;
+	value: string;
+	title?: string;
+}
 
 export default defineComponent({
 	name: "LoadDiagnostics",
@@ -245,7 +237,7 @@ export default defineComponent({
 		},
 		checkedLabel(): string {
 			if (!this.state.checkedAt) return "";
-			const failed = this.checks.filter((c) => !c.ok).length;
+			const failed = this.failedChecks.length;
 			const at = new Date(this.state.checkedAt);
 			const when = this.ranNow
 				? this.$t("loadManagement.diagnostics.ranNow")
@@ -254,7 +246,25 @@ export default defineComponent({
 				? this.$t("loadManagement.diagnostics.failed", { n: failed, when })
 				: this.$t("loadManagement.diagnostics.passed", { when });
 		},
-		controlFacts() {
+		factSections() {
+			return [
+				{
+					id: "control",
+					title: this.$t("loadManagement.diagnostics.control"),
+					help: this.$t("loadManagement.diagnostics.controlHelp"),
+					testid: "load-control-facts",
+					facts: this.controlFacts,
+				},
+				{
+					id: "sensors",
+					title: this.$t("loadManagement.diagnostics.sensors"),
+					help: this.$t("loadManagement.diagnostics.sensorsHelp"),
+					testid: undefined,
+					facts: this.sensorFacts,
+				},
+			];
+		},
+		controlFacts(): Fact[] {
 			const s = this.state;
 			const na = "—";
 			const run = s.running;
@@ -308,7 +318,7 @@ export default defineComponent({
 				},
 			];
 		},
-		sensorFacts() {
+		sensorFacts(): Fact[] {
 			const s = this.state;
 			const m = s.meter || ({} as LoadState["meter"]);
 			const na = "—";
@@ -388,8 +398,8 @@ export default defineComponent({
 				this.result = (res.data as LoadCheck[]) || null;
 				this.ranNow = true;
 				setTimeout(() => (this.ranNow = false), 60000);
-			} catch (e: any) {
-				this.error = e?.response?.data?.error || String(e);
+			} catch (e) {
+				this.error = errorText(e);
 			} finally {
 				this.running = false;
 			}
@@ -528,9 +538,6 @@ details[open] > summary::after {
 	font-weight: 700;
 	cursor: pointer;
 	padding: 0.35rem 0;
-}
-:deep(.evcc-card-subtitle) {
-	text-transform: none;
 }
 .actions .btn {
 	min-height: 2.5rem;

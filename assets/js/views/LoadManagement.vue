@@ -119,7 +119,6 @@ import { defineComponent } from "vue";
 import store from "@/store";
 import api from "@/api";
 import auth, { openLoginModal } from "../components/Auth/auth";
-import formatter from "@/mixins/formatter";
 import Header from "../components/Top/Header.vue";
 import LoadLedger from "../components/LoadManagement/LoadLedger.vue";
 import LoadOrder from "../components/LoadManagement/LoadOrder.vue";
@@ -127,7 +126,8 @@ import LoadSettings from "../components/LoadManagement/LoadSettings.vue";
 import LoadBursts from "../components/LoadManagement/LoadBursts.vue";
 import LoadDiagnostics from "../components/LoadManagement/LoadDiagnostics.vue";
 import SuperchargeModal from "../components/LoadManagement/SuperchargeModal.vue";
-import type { LoadConfig, LoadState } from "@/types/supercharge";
+import { loadPhase } from "../components/LoadManagement/state";
+import type { LoadConfig, LoadState, SuperchargeRequest } from "@/types/supercharge";
 
 const TABS = ["overview", "bursts", "diagnostics", "settings"] as const;
 type Tab = (typeof TABS)[number];
@@ -143,7 +143,6 @@ export default defineComponent({
 		LoadDiagnostics,
 		SuperchargeModal,
 	},
-	mixins: [formatter],
 	props: {
 		tab: { type: String as () => Tab, default: "overview" },
 	},
@@ -168,16 +167,7 @@ export default defineComponent({
 			return auth.loggedIn === false;
 		},
 		phase(): string {
-			const s = this.lm!;
-			if (!s.enabled) return "off";
-			if (!s.running) return "standby";
-			if (s.blind > 0) return "blind";
-			if (s.phase === "burst") return "burst";
-			const lps = s.loadpoints || [];
-			if (lps.some((lp) => lp.supercharge && !lp.paused && lp.setpointA > 0)) {
-				return "supercharge";
-			}
-			return s.vaKva > s.thresholdKva ? "over" : "base";
+			return loadPhase(this.lm!);
 		},
 		// one message at a time, the most serious first
 		alert(): { kind: string; title: string; text: string; tab?: Tab; action?: string } | null {
@@ -266,15 +256,10 @@ export default defineComponent({
 		login() {
 			openLoginModal(this.$route.fullPath);
 		},
-		openSupercharge(e: {
-			index: number;
-			title: string;
-			active: boolean;
-			until: string | null;
-		}) {
+		openSupercharge(req: SuperchargeRequest) {
 			(
 				this.$refs["superchargeModal"] as InstanceType<typeof SuperchargeModal> | undefined
-			)?.open(e.index, e.title, e.active, e.until);
+			)?.open(req);
 		},
 	},
 });

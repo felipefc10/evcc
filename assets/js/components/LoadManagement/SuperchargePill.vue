@@ -38,7 +38,7 @@
 <script lang="ts">
 import { defineComponent, type PropType } from "vue";
 import formatter from "@/mixins/formatter";
-import { fmtDayShort } from "./format";
+import { dayOffset, fmtDayShort } from "./format";
 
 // Supercharge on a loadpoint: off it reads "Supercharge", on it says until when, paused it
 // says so. Either way a press opens the dialog that sets or ends it. Narrow columns use
@@ -64,12 +64,7 @@ export default defineComponent({
 		when(): string {
 			if (!this.until) return "";
 			const d = new Date(this.until);
-			const n = new Date();
-			const days = Math.round(
-				(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime() -
-					new Date(n.getFullYear(), n.getMonth(), n.getDate()).getTime()) /
-					86400000
-			);
+			const days = dayOffset(d, new Date());
 			const time = this.fmtHourMinute(d);
 			if (days <= 0) return time;
 			if (days === 1) return `${this.$t("loadManagement.supercharge.tomorrowLower")} ${time}`;
@@ -134,9 +129,6 @@ export default defineComponent({
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
-}
-.sc-wrap--stacked .sc-pill {
-	min-height: 2.25rem;
 }
 .bolt {
 	flex-shrink: 0;

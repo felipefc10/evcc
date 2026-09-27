@@ -88,17 +88,34 @@ func TestSolarHeadroom(t *testing.T) {
 }
 
 func TestSinglePhaseOnly(t *testing.T) {
-	m := newTestManager(t)
-	m.cfg.Enabled = true
-	m.AddLoadpoint(0, "lp-1", &fakeLp{st: LpState{Title: "Garage", Phases: 3, Connected: true, DemandA: 16, MinA: 6, MaxA: 16}})
+	for _, tc := range []struct {
+		name                 string
+		configured, measured int
+		refused              bool
+	}{
+		{"single phase", 1, 1, false},
+		{"single phase, not measured yet", 1, 0, false},
+		{"configured three", 3, 0, true},
+		{"automatic switching", 0, 0, true},
+		{"measured three", 1, 3, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := newTestManager(t)
+			m.cfg.Enabled = true
+			st := LpState{Title: "Garage", ConfiguredPhases: tc.configured, MeasuredPhases: tc.measured, Connected: true, DemandA: 16, MinA: 6, MaxA: 16}
+			m.AddLoadpoint(0, "lp-1", &fakeLp{st: st})
 
-	m.mu.Lock()
-	unsupported := m.checkPhasesLocked([]LpState{m.lps[0].lp.SuperchargeState()})
-	m.mu.Unlock()
-	require.True(t, unsupported)
+			m.mu.Lock()
+			refused := m.checkPhasesLocked([]LpState{st})
+			m.mu.Unlock()
+			require.Equal(t, tc.refused, refused)
 
-	// acts as switched off: the fail-safe limit holds
-	assert.Equal(t, 6.0, m.Clamp("lp-1", 16, 6, true, 0))
+			if tc.refused {
+				// acts as switched off: the fail-safe limit holds
+				assert.Equal(t, 6.0, m.Clamp("lp-1", 16, 6, true, 0))
+			}
+		})
+	}
 }
 
 func TestExportImport(t *testing.T) {
