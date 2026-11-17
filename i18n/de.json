@@ -1750,7 +1750,7 @@
       "fields": {
         "failsafeA": {
           "label": "Grenze wenn aus",
-          "help": "Maximaler Strom jedes Ladepunkts, solange das Lastmanagement ausgeschaltet ist. 0 bedeutet keine Grenze."
+          "help": "Maximaler Strom jedes Ladepunkts, solange das Lastmanagement ausgeschaltet ist. 0 bedeutet keine Grenze. Mit Fahrzeugerkennung ist es auch die eigene Stromeinstellung eines Fahrzeugs, solange es nicht eingesteckt ist, damit es am einfachen Lader sanft startet (mindestens dessen Minimum)."
         },
         "contractKva": {
           "label": "Vertragsleistung",

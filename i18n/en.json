@@ -1750,7 +1750,7 @@
       "fields": {
         "failsafeA": {
           "label": "Limit while off",
-          "help": "Maximum current of every loadpoint while load management is switched off. Keeps the house safe if you switch it off. 0 means no limit."
+          "help": "Maximum current of every loadpoint while load management is switched off. Keeps the house safe if you switch it off. 0 means no limit. With car detection it is also a car's own current setting while it is unplugged, so it starts gently at its dumb charger (at least that charger's minimum)."
         },
         "contractKva": {
           "label": "Contracted power",

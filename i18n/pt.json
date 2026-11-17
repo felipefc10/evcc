@@ -1720,7 +1720,7 @@
       "fields": {
         "failsafeA": {
           "label": "Limite quando desligado",
-          "help": "Corrente máxima de cada ponto de carregamento enquanto a gestão de carga está desligada. 0 significa sem limite."
+          "help": "Corrente máxima de cada ponto de carregamento enquanto a gestão de carga está desligada. 0 significa sem limite. Com a deteção de carros é também a corrente própria do carro enquanto está desligado da tomada, para começar suavemente no carregador simples (pelo menos o mínimo desse carregador)."
         },
         "contractKva": {
           "label": "Potência contratada",
