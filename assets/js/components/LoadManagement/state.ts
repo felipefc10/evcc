@@ -1,5 +1,5 @@
 import colors from "@/colors";
-import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
+import type { LoadCar, LoadLoadpoint, LoadState } from "@/types/supercharge";
 
 // The status word shared by the house line and the load page, "attention" aside.
 export function loadPhase(s: LoadState): string {
@@ -45,4 +45,28 @@ export function lpColor(i: number): string {
 export function errorText(e: unknown): string {
   const err = e as { response?: { data?: { error?: string } } } | undefined;
   return err?.response?.data?.error || String(e);
+}
+
+// one sentence on where car detection has a car, for the card and the settings
+export function carStatus(c: LoadCar, t: (key: string, values?: Record<string, unknown>) => string): string {
+  const v = { car: c.vehicleTitle, charger: c.atTitle };
+  if (!c.plugged) return t("loadManagement.cars.notPlugged", v);
+  if (c.proven) return t("loadManagement.cars.found", v);
+  if (c.manual) return t("loadManagement.cars.chosen", v);
+  if (c.probing) return t("loadManagement.cars.checking", { ...v, charger: c.probeOnTitle });
+  return t("loadManagement.cars.assumed", { ...v, charger: c.loadpointTitle });
+}
+
+// why a car cannot be placed, in the owner's words, "" when it can
+export function carError(c: LoadCar, t: (key: string, values?: Record<string, unknown>) => string): string {
+  if (!c.error) return "";
+  const key = c.error.charAt(0).toUpperCase() + c.error.slice(1);
+  return t(`loadManagement.cars.error${key}`, { charger: c.errorOn });
+}
+
+// the car detection verdict that concerns a loadpoint's card, if any
+export function carHere(lp: LoadLoadpoint, s: LoadState): LoadCar | undefined {
+  return (s.cars || []).find(
+    (c) => !c.error && c.plugged && !c.manual && (c.at === lp.name || (c.probing && c.loadpoint === lp.name))
+  );
 }

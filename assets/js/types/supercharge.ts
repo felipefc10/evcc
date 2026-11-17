@@ -41,6 +41,29 @@ export interface LoadLoadpoint {
   limitSoc: number;
   forecast: LoadForecast;
   feedAgeS: number | null;
+  vehicleApi: boolean;
+}
+
+// where car detection places a car configured on a dumb charger
+export interface LoadCar {
+  loadpoint: string;
+  loadpointTitle: string;
+  vehicle: string;
+  vehicleTitle: string;
+  at: string;
+  atTitle: string;
+  plugged: boolean;
+  proven: boolean;
+  manual: boolean;
+  canProve: boolean;
+  probing: boolean;
+  probeOnTitle: string;
+  pilot: number;
+  evidence: string;
+  error: "" | "missing" | "duplicate" | "homeDefault" | "default";
+  errorOn: string;
+  probes: number;
+  revokes: number;
 }
 
 export interface LoadMeter {
@@ -141,6 +164,7 @@ export interface LoadState {
   disagreements: number;
 
   loadpoints: LoadLoadpoint[];
+  cars: LoadCar[] | null;
   learned: LoadBehaviour[];
   checks: LoadCheck[] | null;
   checkedAt: string | null;
@@ -189,6 +213,7 @@ export interface LoadConfig {
   k: number;
   contractKva: number;
   loadpoints: Record<string, LoadLpConfig>;
+  dumbCars: Record<string, string>;
   settings: LoadSettings;
 }
 

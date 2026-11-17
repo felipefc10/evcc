@@ -43,6 +43,7 @@ type LpView struct {
 	LimitSoc         int        `json:"limitSoc"`
 	Forecast         Forecast   `json:"forecast"`
 	FeedAgeS         *float64   `json:"feedAgeS"`
+	VehicleAPI       bool       `json:"vehicleApi"`
 }
 
 // MeterView is the meter as published
@@ -120,10 +121,11 @@ type State struct {
 	CreditKVA     float64   `json:"creditKva"`
 	Disagreements int       `json:"disagreements"`
 
-	Loadpoints []LpView    `json:"loadpoints"`
-	Learned    []Behaviour `json:"learned"`
-	Checks     []Check     `json:"checks"`
-	CheckedAt  *time.Time  `json:"checkedAt"`
+	Loadpoints []LpView      `json:"loadpoints"`
+	Cars       []CarLocation `json:"cars"`
+	Learned    []Behaviour   `json:"learned"`
+	Checks     []Check       `json:"checks"`
+	CheckedAt  *time.Time    `json:"checkedAt"`
 }
 
 // State returns the current state
@@ -250,7 +252,7 @@ func (m *Manager) stateLocked() State {
 			Priority: ls.Priority, Connected: ls.Connected, Charging: ls.Charging,
 			Wants:   ls.wants(),
 			DemandA: ls.DemandA, MinA: ls.MinA, MaxA: m.carMaxA(lc, ls), Phases: max(ls.Phases, 1),
-			Paused: true, Fast: lc.Fast, Soc: ls.Soc, LimitSoc: ls.LimitSoc,
+			Paused: true, Fast: lc.Fast, Soc: ls.Soc, LimitSoc: ls.LimitSoc, VehicleAPI: ls.VehicleAPI,
 			Forecast: m.forecast(l, ls),
 		}
 		if until, ok := s.Supercharge[l.name]; ok {
@@ -284,6 +286,7 @@ func (m *Manager) stateLocked() State {
 		}
 		st.Loadpoints = append(st.Loadpoints, v)
 	}
+	st.Cars = slices.Clone(m.cars)
 	return st
 }
 

@@ -68,6 +68,7 @@
 				>
 					{{ subline }}
 				</div>
+				<div v-if="carLine" class="sub" data-testid="load-car">{{ carLine }}</div>
 			</div>
 			<div class="allowed">
 				<div class="label">{{ $t("loadManagement.card.allowed") }}</div>
@@ -163,7 +164,7 @@ import { defineComponent, type PropType } from "vue";
 import formatter from "@/mixins/formatter";
 import SuperchargePill from "./SuperchargePill.vue";
 import { loadpointReason, waitReason } from "./loadpointReason";
-import { superchargeBursting, superchargePaused } from "./state";
+import { carHere, carStatus, superchargeBursting, superchargePaused } from "./state";
 import type { LoadLoadpoint, LoadState } from "@/types/supercharge";
 
 // One loadpoint in the charging order: where it stands, what it is allowed and why,
@@ -244,6 +245,11 @@ export default defineComponent({
 				);
 			}
 			return parts.join(" · ");
+		},
+		// where car detection has the car, while it is plugged in
+		carLine(): string {
+			const c = carHere(this.lp, this.state);
+			return c ? carStatus(c, (k, v) => this.$t(k, v || {})) : "";
 		},
 		// the same words as the main screen's Allowed
 		allowed(): string {

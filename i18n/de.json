@@ -2053,7 +2053,30 @@
       "checkAction": "Diagnose öffnen",
       "errorTitle": "Letzter Fehler"
     },
-    "close": "Schließen"
+    "close": "Schließen",
+    "cars": {
+      "title": "Autoerkennung",
+      "label": "Auto an diesem Lader",
+      "none": "Keins",
+      "help": "Dieser Lader liefert keine Daten und wird über das Auto gesteuert. Das Auto gilt als hier, sobald es eingesteckt ist, außer evcc weist nach, dass es an einem anderen Lader hängt. Dafür muss das Auto den Pilotstrom melden, den es sieht (Fahrzeugeinstellung getmaxcurrent, z. B. TeslaMate charge_current_request_max).",
+      "canProve": "Wird an deinen anderen Ladern automatisch erkannt.",
+      "noPilot": "Dieses Auto meldet den Pilotstrom nicht und kann an einem anderen Lader nicht automatisch erkannt werden: wähle es dort am Ladepunkt aus, wenn es dort lädt.",
+      "errorDefault": "Dieses Auto ist das Standardfahrzeug von {charger}. Entferne es dort, sonst holt jedes Abstecken das Auto zurück.",
+      "errorHomeDefault": "Dieser Ladepunkt hat ein Standardfahrzeug. Entferne es: die Erkennung weist das Auto diesem Ladepunkt selbst zu.",
+      "errorDuplicate": "Dieses Auto ist schon an einem anderen Lader eingetragen.",
+      "errorMissing": "Dieses Auto oder dieser Ladepunkt existiert nicht mehr.",
+      "notPlugged": "{car} ist nicht eingesteckt.",
+      "found": "{car} hängt an {charger}, bestätigt.",
+      "chosen": "{car} wurde an {charger} ausgewählt.",
+      "checking": "{car} gilt als hier, {charger} wird geprüft.",
+      "assumed": "{car} gilt als an {charger}.",
+      "diagHelp": "Wo jedes an einem einfachen Lader eingetragene Auto ist, und warum. Proben / Widerrufe: wie oft ein smarter Lader kurz abgesenkt wurde, um das Auto zu finden, und wie oft eine Bestätigung zurückgenommen wurde.",
+      "car": "Auto",
+      "where": "Wo",
+      "evidence": "Nachweis",
+      "pilot": "Pilot",
+      "probes": "Proben / Widerrufe"
+    }
   },
   "log": {
     "areaLabel": "Nach Bereich filtern",

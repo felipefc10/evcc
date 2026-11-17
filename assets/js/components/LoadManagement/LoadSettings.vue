@@ -305,6 +305,31 @@
 							</div>
 						</div>
 						<Feedback :msg="feedback[`lp-${lp.name}`]" />
+						<div
+							v-if="lp.vehicleApi || dumbCar(lp.name)"
+							class="dumb-car"
+							:data-testid="`load-dumbcar-${lp.index + 1}`"
+						>
+							<label class="feed-label" :for="`lm-car-${lp.index}`">
+								{{ $t("loadManagement.cars.label") }}
+							</label>
+							<select
+								:id="`lm-car-${lp.index}`"
+								class="form-select car-select"
+								:value="dumbCar(lp.name)"
+								@change="saveDumbCar(lp.name, ($event.target as HTMLSelectElement).value)"
+							>
+								<option value="">{{ $t("loadManagement.cars.none") }}</option>
+								<option v-for="v in vehicleOptions" :key="v.name" :value="v.name">
+									{{ v.title }}
+								</option>
+							</select>
+							<div class="form-text">{{ $t("loadManagement.cars.help") }}</div>
+							<div v-if="carNote(lp.name)" class="feed-note" :class="carNoteClass(lp.name)">
+								{{ carNote(lp.name) }}
+							</div>
+							<Feedback :msg="feedback[`car-${lp.name}`]" />
+						</div>
 					</div>
 				</section>
 
@@ -422,8 +447,10 @@ import NumberRow, { type NumberField } from "./NumberRow.vue";
 import LoadBackup from "./LoadBackup.vue";
 import LineConfirm from "./LineConfirm.vue";
 import PacingRow from "./PacingRow.vue";
-import { errorText } from "./state";
+import { carError, carStatus, errorText } from "./state";
+import store from "@/store";
 import type {
+	LoadCar,
 	LoadConfig,
 	LoadLoadpoint,
 	LoadLpConfig,
@@ -502,6 +529,12 @@ export default defineComponent({
 		},
 		loadpoints(): LoadLoadpoint[] {
 			return this.state.loadpoints || [];
+		},
+		vehicleOptions(): { name: string; title: string }[] {
+			return Object.entries(store.state.vehicles || {}).map(([name, v]) => ({
+				name,
+				title: v.title || name,
+			}));
 		},
 		lineFields(): Field[] {
 			return [
@@ -824,6 +857,27 @@ export default defineComponent({
 			return this.$t("loadManagement.settings.feedAge", {
 				s: this.fmtNumber(lp.feedAgeS, 0),
 			});
+		},
+		dumbCar(name: string): string {
+			return this.config.dumbCars?.[name] || "";
+		},
+		carOf(name: string): LoadCar | undefined {
+			return (this.state.cars || []).find((c) => c.loadpoint === name);
+		},
+		// what detection can do with the chosen car, then where the car is now
+		carNote(name: string): string {
+			const c = this.carOf(name);
+			if (!c || !this.dumbCar(name)) return "";
+			if (c.error) return carError(c, (k, v) => this.$t(k, v || {}));
+			const how = this.$t(`loadManagement.cars.${c.canProve ? "canProve" : "noPilot"}`);
+			return `${how} ${carStatus(c, (k, v) => this.$t(k, v || {}))}`;
+		},
+		carNoteClass(name: string): string {
+			const c = this.carOf(name);
+			return !c || c.error || !c.canProve ? "warn-text" : "text-primary";
+		},
+		saveDumbCar(name: string, vehicle: string) {
+			this.save({ dumbCars: { [name]: vehicle } }, `car-${name}`);
 		},
 		feedNoteClass(lp: LoadLoadpoint): string {
 			return lp.feedAgeS == null || lp.feedAgeS > 30 ? "warn-text" : "text-primary";
@@ -1188,6 +1242,13 @@ fieldset {
 }
 .unit-select {
 	max-width: 4.5rem;
+}
+.dumb-car {
+	margin-top: 1rem;
+	max-width: 34rem;
+}
+.car-select {
+	max-width: 20rem;
 }
 .warn-text {
 	color: #9a5200;

@@ -59,6 +59,7 @@ type LpState struct {
 	LimitSoc         int
 	RemainingWh      float64
 	ChargedWh        float64
+	VehicleAPI       bool // a dumb charger driven through the car's api
 }
 
 // wants reports whether the loadpoint's own mode logic asks for a charge the car can take
@@ -101,7 +102,9 @@ type Config struct {
 	K           float64             `json:"k"`
 	ContractKVA float64             `json:"contractKva"`
 	Loadpoints  map[string]LpConfig `json:"loadpoints"`
-	Settings    Settings            `json:"settings"`
+	// DumbCars maps the loadpoint of a dumb charger (driven through a car's api) to that car
+	DumbCars map[string]string `json:"dumbCars"`
+	Settings Settings          `json:"settings"`
 }
 
 // DefaultConfig returns the configuration used before anything was saved
@@ -113,6 +116,7 @@ func DefaultConfig() Config {
 		K:           1.2,
 		ContractKVA: 3.45,
 		Loadpoints:  map[string]LpConfig{},
+		DumbCars:    map[string]string{},
 		Settings:    DefaultSettings(),
 	}
 }
@@ -139,6 +143,16 @@ func (c *Config) sanitize() {
 			v.MeasureUnit = "A"
 		}
 		c.Loadpoints[k] = v
+	}
+	if c.DumbCars == nil {
+		c.DumbCars = map[string]string{}
+	}
+	for k, v := range c.DumbCars {
+		if v = strings.TrimSpace(v); v == "" {
+			delete(c.DumbCars, k)
+		} else {
+			c.DumbCars[k] = v
+		}
 	}
 	c.Settings.Sanitize()
 }
@@ -230,6 +244,9 @@ type Manager struct {
 	feeds   map[string]feedValue
 	feedsMu sync.Mutex
 	subbed  map[string]bool
+
+	probes map[string]float64 // loadpoint -> current cap while car detection probes it
+	cars   []CarLocation      // car detection's verdicts
 
 	wake chan struct{}
 }
@@ -337,6 +354,15 @@ func (m *Manager) answeringLocked() bool {
 func (m *Manager) Clamp(name string, current, minA float64, enabled bool, offered float64) float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	res := m.clampLocked(name, current, minA, enabled, offered)
+	if p, ok := m.probes[name]; ok && res > 0 {
+		// a probe only ever lowers, and never below the minimum: it cannot stop or start a car
+		res = math.Min(res, math.Max(p, minA))
+	}
+	return res
+}
+
+func (m *Manager) clampLocked(name string, current, minA float64, enabled bool, offered float64) float64 {
 	if !m.cfg.Enabled || m.unsupported != "" {
 		if m.cfg.FailsafeA > 0 {
 			return math.Min(current, math.Max(m.cfg.FailsafeA, minA))
@@ -664,6 +690,9 @@ func (m *Manager) step(ctx context.Context) {
 		wants := st.wants()
 		minA := st.MinA * float64(phases)
 		maxA := m.carMaxA(c, st) * float64(phases)
+		if p, ok := m.probes[l.name]; ok {
+			maxA = math.Min(maxA, math.Max(p, st.MinA)*float64(phases))
+		}
 		if wants && st.DemandA > 0 {
 			maxA = math.Min(maxA, math.Floor(st.DemandA+1e-9)*float64(phases))
 		}

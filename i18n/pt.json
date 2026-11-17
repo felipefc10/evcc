@@ -2023,7 +2023,30 @@
       "checkAction": "Abrir Diagnóstico",
       "errorTitle": "Último erro"
     },
-    "close": "Fechar"
+    "close": "Fechar",
+    "cars": {
+      "title": "Deteção do carro",
+      "label": "Carro neste carregador",
+      "none": "Nenhum",
+      "help": "Este carregador não tem dados e é comandado através do carro. O carro conta como estando aqui sempre que está ligado, a não ser que o evcc prove que está noutro carregador. Para isso o carro tem de reportar a corrente piloto que vê (definição do veículo getmaxcurrent, p. ex. TeslaMate charge_current_request_max).",
+      "canProve": "Encontrado automaticamente nos teus outros carregadores.",
+      "noPilot": "Este carro não reporta a corrente piloto que vê, por isso não pode ser encontrado automaticamente noutro carregador: escolhe-o nesse ponto de carga quando carregar lá.",
+      "errorDefault": "Este carro é o veículo predefinido de {charger}. Remove-o lá, senão cada desligar leva o carro de volta.",
+      "errorHomeDefault": "Este ponto de carga tem um veículo predefinido. Remove-o: a deteção atribui o carro a este ponto de carga.",
+      "errorDuplicate": "Este carro já está definido noutro carregador.",
+      "errorMissing": "Este carro ou ponto de carga já não existe.",
+      "notPlugged": "{car} não está ligado.",
+      "found": "{car} está em {charger}, confirmado.",
+      "chosen": "{car} foi escolhido em {charger}.",
+      "checking": "{car} conta como estando aqui, a verificar {charger}.",
+      "assumed": "{car} conta como estando em {charger}.",
+      "diagHelp": "Onde está cada carro definido num carregador simples, e porquê. Provas / revogações: quantas vezes um carregador inteligente foi baixado por instantes para encontrar o carro, e quantas vezes uma confirmação foi retirada.",
+      "car": "Carro",
+      "where": "Onde",
+      "evidence": "Prova",
+      "pilot": "Piloto",
+      "probes": "Provas / revogações"
+    }
   },
   "log": {
     "areaLabel": "Filtrar por área",

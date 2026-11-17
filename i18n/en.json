@@ -2053,7 +2053,30 @@
       "checkAction": "Open Diagnostics",
       "errorTitle": "Last error"
     },
-    "close": "Close"
+    "close": "Close",
+    "cars": {
+      "title": "Car detection",
+      "label": "Car on this charger",
+      "none": "None",
+      "help": "This charger has no data and is driven through the car. The car counts as here whenever it is plugged in, unless evcc proves it is on another charger. For that the car must report the pilot current it sees (vehicle setting getmaxcurrent, e.g. TeslaMate charge_current_request_max).",
+      "canProve": "Found automatically on your other chargers.",
+      "noPilot": "This car does not report the pilot current it sees, so it cannot be found on another charger automatically: choose it on that loadpoint when it charges there.",
+      "errorDefault": "This car is the default vehicle of {charger}. Remove it there, otherwise every unplug takes the car back.",
+      "errorHomeDefault": "This loadpoint has a default vehicle. Remove it: detection gives the car to this loadpoint itself.",
+      "errorDuplicate": "This car is already set on another charger.",
+      "errorMissing": "This car or loadpoint no longer exists.",
+      "notPlugged": "{car} is not plugged in.",
+      "found": "{car} is on {charger}, confirmed.",
+      "chosen": "{car} was chosen on {charger}.",
+      "checking": "{car} is assumed here, checking {charger}.",
+      "assumed": "{car} is assumed on {charger}.",
+      "diagHelp": "Where each car set on a dumb charger is, and why. Probes / revokes: how often a smart charger was briefly lowered to find the car, and how often a confirmation was withdrawn.",
+      "car": "Car",
+      "where": "Where",
+      "evidence": "Evidence",
+      "pilot": "Pilot",
+      "probes": "Probes / revokes"
+    }
   },
   "log": {
     "areaLabel": "Filter by area",

@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"math"
 	"sync"
 
@@ -84,6 +85,7 @@ func (lp *Loadpoint) SuperchargeState() supercharge.LpState {
 		LimitSoc:         limitSoc,
 		RemainingWh:      lp.chargeRemainingEnergy * 1e3,
 		ChargedWh:        charged,
+		VehicleAPI:       fmt.Sprintf("%T", lp.charger) == "*charger.VehicleApi", // without importing the charger package
 	}
 	if lp.chargeCurrents != nil {
 		st.ChargeCurrents = append([]float64(nil), lp.chargeCurrents...)

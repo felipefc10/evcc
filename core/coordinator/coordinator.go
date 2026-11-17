@@ -117,7 +117,7 @@ func (c *Coordinator) availableDetectibleVehicles(owner loadpoint.API) []api.Veh
 
 	for _, vv := range c.vehicles {
 		// status api available
-		if api.HasCap[api.ChargeState](vv) && !slices.Contains(vv.Features(), api.AutodetectDisabled) {
+		if api.HasCap[api.ChargeState](vv) && !slices.Contains(vv.Features(), api.AutodetectDisabled) && (Excluded == nil || !Excluded(vv)) {
 			// available or associated to current loadpoint
 			if o, ok := c.tracked[vv]; o == owner || !ok {
 				res = append(res, vv)

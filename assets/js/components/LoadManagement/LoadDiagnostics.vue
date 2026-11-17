@@ -175,6 +175,37 @@
 					</table>
 				</div>
 			</section>
+
+			<section v-if="cars.length" class="support-section" data-testid="load-cars">
+				<h3 class="section-title">{{ $t("loadManagement.cars.title") }}</h3>
+				<p class="section-help">{{ $t("loadManagement.cars.diagHelp") }}</p>
+				<div class="table-responsive">
+					<table class="table table-sm small mb-0">
+						<thead>
+							<tr>
+								<th>{{ $t("loadManagement.cars.car") }}</th>
+								<th>{{ $t("loadManagement.cars.where") }}</th>
+								<th class="d-none d-md-table-cell">{{ $t("loadManagement.cars.evidence") }}</th>
+								<th class="text-end">{{ $t("loadManagement.cars.pilot") }}</th>
+								<th class="text-end d-none d-sm-table-cell">
+									{{ $t("loadManagement.cars.probes") }}
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr v-for="c in cars" :key="c.vehicle">
+								<td>{{ c.vehicleTitle || c.vehicle }}</td>
+								<td>{{ carWhere(c) }}</td>
+								<td class="d-none d-md-table-cell">{{ carProblem(c) || c.evidence || "—" }}</td>
+								<td class="text-end">{{ c.pilot ? `${fmtNumber(c.pilot, 0)} A` : "—" }}</td>
+								<td class="text-end d-none d-sm-table-cell">
+									{{ c.probes }} / {{ c.revokes }}
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</section>
 		</details>
 	</div>
 </template>
@@ -185,8 +216,8 @@ import api from "@/api";
 import formatter from "@/mixins/formatter";
 import Card from "../Helper/Card.vue";
 import { fmtDayShort } from "./format";
-import { errorText } from "./state";
-import type { LoadBehaviour, LoadCheck, LoadState } from "@/types/supercharge";
+import { carError, carStatus, errorText } from "./state";
+import type { LoadBehaviour, LoadCar, LoadCheck, LoadState } from "@/types/supercharge";
 
 interface Fact {
 	label: string;
@@ -209,6 +240,9 @@ export default defineComponent({
 		// the answer to a run shows at once; the websocket confirms it a moment later
 		checks(): LoadCheck[] {
 			return this.state.checks || this.result || [];
+		},
+		cars(): LoadCar[] {
+			return this.state.cars || [];
 		},
 		failedChecks(): LoadCheck[] {
 			return this.checks.filter((c) => !c.ok);
@@ -384,6 +418,12 @@ export default defineComponent({
 		},
 	},
 	methods: {
+		carProblem(c: LoadCar): string {
+			return carError(c, (k, v) => this.$t(k, v || {}));
+		},
+		carWhere(c: LoadCar): string {
+			return c.error ? "—" : carStatus(c, (k, v) => this.$t(k, v || {}));
+		},
 		dayOf(d: Date): string {
 			if (d.toDateString() === new Date().toDateString()) {
 				return this.$t("loadManagement.supercharge.todayLower");
