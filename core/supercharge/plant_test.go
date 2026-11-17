@@ -156,3 +156,28 @@ type fakeLp struct{ st LpState }
 func (f *fakeLp) SuperchargeState() LpState               { return f.st }
 func (f *fakeLp) SuperchargeCurrents() ([]float64, error) { return nil, nil }
 func (f *fakeLp) SuperchargeApply(int) error              { return nil }
+
+func TestFeedOfLoadpointWithoutCar(t *testing.T) {
+	// a feed from the car (TeslaMate) reports it on any charger: the loadpoint without the car
+	// must not count it, else the car on the other charger is counted twice
+	for _, connected := range []bool{false, true} {
+		m := NewManager(util.NewLogger("test"), memStore{}, nil, func(string, any) {}, Plant{Grid: fixedMeter(3700)})
+		m.cfg.Enabled = true
+		m.cfg.MeterURI = ""
+		m.cfg.Loadpoints = map[string]LpConfig{"lp-2": {MeasureTopic: "tesla/current"}}
+		m.meter = m.meterFor(m.cfg)
+		m.AddLoadpoint(0, "lp-1", &fakeLp{st: LpState{Title: "Wallbox", ConfiguredPhases: 1, Connected: true, Enabled: true, Charging: true, DemandA: 16, MinA: 6, MaxA: 32, OfferedA: 16}})
+		m.AddLoadpoint(1, "lp-2", &fakeLp{st: LpState{Title: "Dumb", ConfiguredPhases: 1, Connected: connected, DemandA: 16, MinA: 6, MaxA: 32}})
+		m.feeds["tesla/current"] = feedValue{v: 16, at: time.Now()}
+
+		m.running = true
+		m.step(context.Background())
+		lps := m.State().Loadpoints
+		require.Len(t, lps, 2)
+		if connected {
+			assert.Equal(t, 16.0, lps[1].MeasuredRawA)
+		} else {
+			assert.Zero(t, lps[1].MeasuredRawA)
+		}
+	}
+}

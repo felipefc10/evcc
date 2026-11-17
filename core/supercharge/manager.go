@@ -664,6 +664,10 @@ func (m *Manager) step(ctx context.Context) {
 		phases := max(st.Phases, 1)
 		measured, stale, src := 0.0, true, "evcc"
 		switch {
+		case c.MeasureTopic != "" && !st.Connected:
+			// a feed from the car (e.g. TeslaMate) reports it wherever it charges: a loadpoint
+			// without a car draws nothing, else a car on another charger is counted twice
+			measured, stale, src = 0, false, "mqtt"
 		case c.MeasureTopic != "":
 			if v, ok := m.feed(c.MeasureTopic); ok {
 				if c.MeasureUnit == "W" {
