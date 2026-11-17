@@ -126,11 +126,85 @@ func TestLocateReleasesTwice(t *testing.T) {
 	for range 120 {
 		if a, ok := w.step().Release["v"]; ok {
 			at = append(at, w.now)
-			assert.Equal(t, 32.0, a)
+			assert.Equal(t, 14.0, a, "the pilot the car sees: some apis refuse more")
 		}
 	}
 	require.Len(t, at, 2)
 	assert.InDelta(t, locReleaseS, at[1]-at[0], 1)
+}
+
+func TestLocateLiftsWithThePilot(t *testing.T) {
+	// a supercharge burst raises the Wallbox: the car's own setting follows each new highest pilot,
+	// never down, never above the maximum
+	w := newWorld(t)
+	w.pilot = w.followsX()
+	w.run(30)
+	w.xA = 14
+	w.run(120)
+	require.True(t, w.car().Proven)
+	var lifts []float64
+	for _, a := range []float64{12, 20, 16, 40} {
+		w.xA = a
+		for range 60 {
+			if v, ok := w.step().Release["v"]; ok {
+				lifts = append(lifts, v)
+			}
+		}
+	}
+	assert.Equal(t, []float64{20, 32}, lifts)
+}
+
+func TestLocateRestsOnLeaving(t *testing.T) {
+	// proven on the Wallbox, released to the full current; unplugged: back to the rest current at
+	// once, and again later only while the car is still unplugged
+	w := newWorld(t)
+	w.pilot = w.followsX()
+	w.run(30)
+	w.xA = 14
+	w.run(120)
+	require.True(t, w.car().Proven)
+	w.xOn, w.plug = false, false
+	var at []float64
+	for range 60 {
+		if a, ok := w.step().Rest["v"]; ok {
+			at = append(at, w.now)
+			assert.Equal(t, 6.0, a, "the dumb charger's minimum, raised to the fail-safe by the site")
+		}
+	}
+	require.Len(t, at, 2)
+	assert.InDelta(t, locReleaseS, at[1]-at[0], 1)
+}
+
+func TestLocateRestNotResentOnceBackHome(t *testing.T) {
+	// plugged into the dumb charger within the wait: it sets the current itself, no second rest
+	w := newWorld(t)
+	w.pilot = w.followsX()
+	w.run(30)
+	w.xA = 14
+	w.run(120)
+	w.xOn, w.plug = false, false
+	n := 0
+	for i := range 60 {
+		if i == 5 {
+			w.plug = true
+			w.pilot = func(float64) (float64, bool) { return 32, true }
+		}
+		if _, ok := w.step().Rest["v"]; ok {
+			n++
+		}
+	}
+	assert.Equal(t, 1, n)
+	assert.Equal(t, "v", w.owner["l"])
+}
+
+func TestLocateNoRestWithoutProof(t *testing.T) {
+	w := newWorld(t)
+	w.pilot = func(float64) (float64, bool) { return 32, true }
+	w.run(60)
+	w.plug = false
+	for range 60 {
+		assert.Empty(t, w.step().Rest)
+	}
 }
 
 func TestLocateNoProbeWhileAway(t *testing.T) {

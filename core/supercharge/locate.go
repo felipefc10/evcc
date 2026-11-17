@@ -28,7 +28,7 @@ const (
 	locBackoffS   = 120.0
 	locBackoffMax = 1800.0
 	locNegatives  = 2    // failed probes after which a smart charger's session is left alone
-	locReleaseS   = 30.0 // the release is sent again this long after a proof: a disable the dumb charger had in flight may land after the first
+	locReleaseS   = 30.0 // release and rest are sent again this long later: a command still in flight may land after the first
 )
 
 // LocLp is a loadpoint as car detection sees it, read every second from cached state
@@ -85,7 +85,8 @@ type CarLocation struct {
 // LocDecision is what the site applies after a step
 type LocDecision struct {
 	Assign   []LocAssign        // in order: releases first
-	Release  map[string]float64 // vehicle -> current: on arrival at a smart charger, hand the car's own start/stop and current setting back to it
+	Release  map[string]float64 // vehicle -> current: on a smart charger, allow the car to charge and lift its own current setting to this
+	Rest     map[string]float64 // vehicle -> its dumb charger's minimum: on leaving a smart charger, set the car's own current to the safe rest value
 	Probes   map[string]float64 // loadpoint -> current cap while probing
 	Cars     []CarLocation
 	Excluded map[string]bool // vehicles that status guessing must never assign
@@ -100,6 +101,9 @@ type locTrack struct {
 	provenOn  string
 	placedOn  string  // loadpoint the locator itself gave the car to
 	releaseAt float64 // when the release is sent again, 0 when done
+	lifted    float64 // highest own current setting asked of the car since the proof
+	rest      bool    // proof was lost: the rest current is due
+	restAt    float64 // when the rest current is sent again, 0 when done
 	evidence  string
 	misses    int
 	revokes   int
@@ -175,7 +179,7 @@ func (l *Locator) lastStep(lp string) float64 {
 
 // Step records the loadpoints and returns what to apply. pairs maps a dumb charger's loadpoint to its car.
 func (l *Locator) Step(now float64, pairs map[string]string, lps []LocLp, cars map[string]LocCar) LocDecision {
-	d := LocDecision{Release: map[string]float64{}, Probes: map[string]float64{}, Excluded: map[string]bool{}}
+	d := LocDecision{Release: map[string]float64{}, Rest: map[string]float64{}, Probes: map[string]float64{}, Excluded: map[string]bool{}}
 	byName := map[string]LocLp{}
 	for _, lp := range lps {
 		byName[lp.Name] = lp
@@ -195,7 +199,7 @@ func (l *Locator) Step(now float64, pairs map[string]string, lps []LocLp, cars m
 				delete(t.failed, lp.Name)
 				delete(t.overruled, lp.Name)
 				if !lp.Connected && t.provenOn == lp.Name {
-					t.provenOn, t.evidence = "", lp.Title+" disconnected"
+					t.provenOn, t.evidence, t.rest = "", lp.Title+" disconnected", true
 				}
 			}
 			l.connected[lp.Name] = lp.Connected
@@ -245,7 +249,7 @@ func (l *Locator) Step(now float64, pairs map[string]string, lps []LocLp, cars m
 		}
 
 		if car.StatusOK && !car.Plugged && t.provenOn != "" {
-			t.provenOn, t.evidence = "", "unplugged"
+			t.provenOn, t.evidence, t.rest = "", "unplugged", true
 		}
 
 		// put elsewhere by the owner or by that charger's own identification: respected while that
@@ -293,10 +297,17 @@ func (l *Locator) Step(now float64, pairs map[string]string, lps []LocLp, cars m
 				}
 				if len(hits) == 1 {
 					x := hits[0]
-					t.provenOn, t.misses, t.releaseAt = x.Name, 0, now+locReleaseS
+					t.provenOn, t.misses, t.releaseAt, t.rest, t.restAt = x.Name, 0, now+locReleaseS, false, 0
 					t.evidence = fmt.Sprintf("pilot followed %s from %.0f to %.0f A", x.Title, t.lastPilot, r)
-					d.Release[vName] = home.MaxA
+					t.lifted = 0
 				}
+			}
+			// on a smart charger the car's own setting must never hold the pilot back (a supercharge
+			// burst offers more than the line). Lifted to each new highest pilot rather than straight to
+			// the maximum: some car apis refuse a setting above the pilot the car sees right now.
+			if lift := min(r, home.MaxA); t.provenOn != "" && lift > t.lifted {
+				t.lifted = lift
+				d.Release[vName] = lift
 			}
 			t.lastPilot, t.havePilot = r, true
 		}
@@ -335,10 +346,24 @@ func (l *Locator) Step(now float64, pairs map[string]string, lps []LocLp, cars m
 		}
 
 		if t.releaseAt > 0 && now >= t.releaseAt {
-			if t.provenOn != "" {
-				d.Release[vName] = home.MaxA
+			if t.provenOn != "" && t.lifted > 0 {
+				d.Release[vName] = t.lifted
 			}
 			t.releaseAt = 0
+		}
+
+		// left the smart charger: the car keeps its own current setting, which the release lifted to
+		// the full current. Back to the safe rest value before it arrives at its dumb charger, where it
+		// draws that setting until evcc takes it over. Sent again later only while still unplugged: once
+		// the dumb charger has the car it sets the current itself.
+		if t.rest {
+			d.Rest[vName] = home.MinA
+			t.rest, t.restAt = false, now+locReleaseS
+		} else if t.restAt > 0 && now >= t.restAt {
+			if car.StatusOK && !car.Plugged {
+				d.Rest[vName] = home.MinA
+			}
+			t.restAt = 0
 		}
 
 		// probe: lower a smart charger briefly so a car on it shows itself. Only while the dumb
@@ -422,13 +447,12 @@ func pairError(home LocLp, vName string, lps []LocLp) (string, string) {
 	return "", ""
 }
 
-// ReleaseAmps is what a car's own current setting is lifted to once it is on a smart charger: the
-// smart charger's pilot limits it there, and the setting stays when the car later goes back to its dumb
-// charger, where it draws that much until evcc takes it over. Never more than the house line carries.
-func (m *Manager) ReleaseAmps(dumbMaxA float64) float64 {
+// RestAmps is a car's own current setting while it is not proven on a smart charger: the fail-safe
+// current (what any loadpoint gets while load management cannot answer), at least the minimum
+func (m *Manager) RestAmps(minA float64) float64 {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return math.Min(dumbMaxA, math.Floor(m.cfg.Curve().ThresholdAmpsAt230()))
+	return math.Max(m.cfg.FailsafeA, minA)
 }
 
 // DumbCars returns the configured dumb charger loadpoints and their cars

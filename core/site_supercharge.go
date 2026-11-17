@@ -222,8 +222,7 @@ func (site *Site) runCarDetection(ctx context.Context, excluded *atomic.Pointer[
 
 		// the dumb charger may have stopped the car or lowered its own current setting through
 		// the car's api: undo both, the smart charger's pilot and enable govern from now on
-		for vName, dumbMax := range d.Release {
-			amps := site.supercharge.ReleaseAmps(dumbMax)
+		for vName, amps := range d.Release {
 			go func(v api.Vehicle) {
 				if cc, ok := api.Cap[api.ChargeController](v); ok {
 					if err := cc.ChargeEnable(true); err != nil {
@@ -233,6 +232,17 @@ func (site *Site) runCarDetection(ctx context.Context, excluded *atomic.Pointer[
 				if cc, ok := api.Cap[api.CurrentController](v); ok && amps > 0 {
 					if err := cc.MaxCurrent(int64(amps)); err != nil {
 						log.WARN.Printf("%s: lifting the car's own current setting: %v", v.GetTitle(), err)
+					}
+				}
+			}(vehicles[vName])
+		}
+
+		for vName, minA := range d.Rest {
+			amps := site.supercharge.RestAmps(minA)
+			go func(v api.Vehicle) {
+				if cc, ok := api.Cap[api.CurrentController](v); ok {
+					if err := cc.MaxCurrent(int64(amps)); err != nil {
+						log.WARN.Printf("%s: setting the car's own current back to %.0f A: %v", v.GetTitle(), amps, err)
 					}
 				}
 			}(vehicles[vName])
