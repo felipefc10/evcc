@@ -89,6 +89,8 @@ type LpConfig struct {
 	// MaxTopic is an MQTT topic publishing the most current the car accepts right now, in A.
 	// Commands above it are refused by some cars' integrations, so the loop never plans above it.
 	MaxTopic string `json:"maxTopic"`
+	// LeaseTopic is the charger bridge's lease command topic (see lease.go), empty for none
+	LeaseTopic string `json:"leaseTopic"`
 }
 
 // Config is the persisted configuration, settings included
@@ -139,6 +141,7 @@ func (c *Config) sanitize() {
 		v.MeasureTopic = strings.TrimSpace(v.MeasureTopic)
 		v.TempTopic = strings.TrimSpace(v.TempTopic)
 		v.MaxTopic = strings.TrimSpace(v.MaxTopic)
+		v.LeaseTopic = strings.TrimSpace(v.LeaseTopic)
 		if v.MeasureUnit != "W" {
 			v.MeasureUnit = "A"
 		}
@@ -248,6 +251,10 @@ type Manager struct {
 	probes map[string]float64 // loadpoint -> current cap while car detection probes it
 	cars   []CarLocation      // car detection's verdicts
 
+	mqttPub  Publisher         // charger leases, nil without MQTT
+	leased   map[string]string // loadpoint -> topic of the lease it holds
+	leaseSeq int64             // last lease sequence number sent
+
 	wake chan struct{}
 }
 
@@ -271,6 +278,8 @@ func NewManager(log *util.Logger, store Store, sub Subscriber, pub func(string, 
 		learner:  NewLearner(),
 		feeds:    map[string]feedValue{},
 		subbed:   map[string]bool{},
+		leased:   map[string]string{},
+		leaseSeq: leaseSeqStart(),
 		wake:     make(chan struct{}, 1),
 		start:    time.Now(),
 		pollMode: "standby",
@@ -565,6 +574,7 @@ func (m *Manager) runArmed(ctx context.Context) {
 			l.mu.Unlock()
 		}
 		m.status = "standby"
+		m.releaseLeasesLocked()
 		m.mu.Unlock()
 		m.saveLearned(true)
 		// hand every loadpoint back to its own cycle
@@ -777,6 +787,8 @@ func (m *Manager) step(ctx context.Context) {
 	}
 
 	m.noteOutcomeLocked(sm, lps, now)
+
+	m.publishLeasesLocked(tel)
 
 	m.addTrace(sm, cmd)
 	m.flushRecords(states)
@@ -1390,6 +1402,10 @@ func (m *Manager) Import(b Backup) error {
 	}
 	if next.Settings.Supercharge == nil {
 		next.Settings.Supercharge = map[string]int64{}
+	}
+	// an export from before the charger lease has no leaseS; 0 is below its limit, so unset
+	if next.Settings.LeaseS == 0 {
+		next.Settings.LeaseS = DefaultSettings().LeaseS
 	}
 	if err := next.Settings.Validate(); err != nil {
 		return err

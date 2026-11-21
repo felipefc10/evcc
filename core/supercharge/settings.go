@@ -55,6 +55,10 @@ type Settings struct {
 	// bursting stops above this charger temperature
 	MaxTempC float64 `json:"maxTempC"`
 
+	// a leased charger (LpConfig.LeaseTopic) falls back to the fail-safe current by itself
+	// when evcc has not renewed its lease for this long while balancing (lease.go)
+	LeaseS float64 `json:"leaseS"`
+
 	// Supercharge maps a loadpoint key to the epoch second it stands down at, 0 for indefinitely.
 	// A key being present means that loadpoint is ticked for supercharging.
 	Supercharge map[string]int64 `json:"supercharge"`
@@ -86,6 +90,7 @@ func DefaultSettings() Settings {
 		BaseTiStopS:        90.0,
 		TrimMaxA:           2.0,
 		MaxTempC:           55.0,
+		LeaseS:             60.0,
 		Supercharge:        map[string]int64{},
 	}
 }
@@ -133,6 +138,7 @@ var Limits = map[string]Limit{
 	"blindPolls":         {2, 30, 1},
 	"blindHoldA":         {0, 32, 1},
 	"maxTempC":           {30, 90, 1},
+	"leaseS":             {15, 120, 1}, // above the 10 s idle poll; at the line a 2.5 kVA step trips in about 70 s
 	"baseAbortCloseness": {0.1, 0.8, 0.05},
 	"baseStopCloseness":  {0.2, 0.95, 0.05},
 	"baseTiAbortS":       {5, 300, 5},
@@ -258,6 +264,7 @@ func (s *Settings) Sanitize() {
 	ci("blindPolls", &s.BlindPolls)
 	ci("blindHoldA", &s.BlindHoldA)
 	c("maxTempC", &s.MaxTempC)
+	c("leaseS", &s.LeaseS)
 	c("baseAbortCloseness", &s.BaseAbortCloseness)
 	c("baseStopCloseness", &s.BaseStopCloseness)
 	c("baseTiAbortS", &s.BaseTiAbortS)

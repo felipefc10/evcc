@@ -35,6 +35,14 @@ func superchargeSubscribe(topic string, cb func(string)) error {
 	return mqtt.Instance.Listen(topic, cb)
 }
 
+// superchargePublish publishes a charger lease on evcc's own MQTT connection. Never
+// retained: a stored lease would be applied, stale, by a bridge that restarts.
+func superchargePublish(topic, payload string) {
+	if mqtt.Instance != nil {
+		mqtt.Instance.Publish(topic, false, payload)
+	}
+}
+
 // prepareSupercharge creates the whole-house load manager and attaches every loadpoint
 func (site *Site) prepareSupercharge() {
 	var plant supercharge.Plant
@@ -46,6 +54,7 @@ func (site *Site) prepareSupercharge() {
 	}
 
 	site.supercharge = supercharge.NewManager(util.NewLogger("supercharge"), superchargeStore{}, superchargeSubscribe, site.publish, plant)
+	site.supercharge.SetPublisher(superchargePublish)
 	circuit.SetStandIn(site.supercharge.Owns)
 
 	lpDevices := config.Loadpoints().Devices()

@@ -303,6 +303,26 @@
 									{{ $t("loadManagement.settings.tempTopicShort") }}
 								</div>
 							</div>
+							<div>
+								<label class="feed-label" :for="`lm-lease-${lp.index}`">
+									{{ $t("loadManagement.settings.leaseTopic") }}
+								</label>
+								<input
+									:id="`lm-lease-${lp.index}`"
+									:placeholder="$t('loadManagement.settings.notSet')"
+									class="form-control font-monospace"
+									type="text"
+									:value="lpConfig(lp.name).leaseTopic"
+									@change="
+										saveLp(lp.name, {
+											leaseTopic: ($event.target as HTMLInputElement).value,
+										})
+									"
+								/>
+								<div class="form-text">
+									{{ $t("loadManagement.settings.leaseTopicShort") }}
+								</div>
+							</div>
 						</div>
 						<Feedback :msg="feedback[`lp-${lp.name}`]" />
 						<div
@@ -744,6 +764,7 @@ export default defineComponent({
 							digits: 0,
 							def: 10,
 						},
+						{ key: "leaseS", unit: "s", min: 15, max: 120, step: 1, digits: 0, def: 60 },
 					],
 				},
 			];
@@ -919,6 +940,7 @@ export default defineComponent({
 					measureUnit: "A",
 					tempTopic: "",
 					maxTopic: "",
+					leaseTopic: "",
 				}
 			);
 		},

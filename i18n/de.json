@@ -1726,6 +1726,7 @@
       "measureTopic": "Strom-Feed",
       "measureUnit": "Einheit",
       "tempTopic": "Ladertemperatur (MQTT)",
+      "leaseTopic": "Frist-Topic des Laders",
       "maxTopic": "Fahrzeug-Maximum (MQTT)",
       "tiles": {
         "expected": "Erwartete mittlere Leistung",
@@ -1859,6 +1860,10 @@
         "blindHoldA": {
           "label": "Strom für das weiterladende Auto",
           "help": "Nur wenn ein Auto weiterlädt, während der Zähler schweigt."
+        },
+        "leaseS": {
+          "label": "Lader-Frist",
+          "help": "So lange hält ein Lader mit Frist seinen Strom ohne Nachricht von evcc. Danach fällt er selbst auf den Strom bei ausgeschaltetem Lastmanagement zurück (mindestens das Lader-Minimum), damit ein Netzwerkausfall oder ein gestopptes evcc den Zähler nicht überlastet. Über der Linie ist sie kürzer: im Burst die Restzeit bis zum Ende des Bursts, sonst was der Zähler noch aushält. Höchstens 120 s: an der Linie löst ein Sprung von 2,5 kVA den Zähler nach etwa 70 s aus."
         }
       },
       "locked": "Nur Ansicht. Als Admin anmelden, um diese Einstellungen zu ändern.",
@@ -1894,6 +1899,7 @@
       "measureTopicShort": "Optionales MQTT-Topic mit dem Strom dieses Autos, z. B. von TeslaMate.",
       "maxTopicShort": "Optionales Topic mit dem höchsten Strom, den das Auto gerade annimmt.",
       "tempTopicShort": "Optionales Topic mit der Wallbox-Temperatur in °C.",
+      "leaseTopicShort": "Optional, für eine Lader-Bridge mit Frist-Unterstützung (ihr Topic …/lease/set). evcc sendet den Strom mit einer Frist in jedem Regelschritt; erneuert evcc sie nicht mehr, fällt der Lader selbst auf den Rückfallstrom zurück.",
       "notSet": "Nicht gesetzt",
       "unitReadings": "Werte",
       "fastOf": "{name} schnelle Wallbox",

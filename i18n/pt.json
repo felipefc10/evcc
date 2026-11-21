@@ -1696,6 +1696,7 @@
       "measureTopic": "Feed de corrente",
       "measureUnit": "Unidade",
       "tempTopic": "Temperatura do carregador (MQTT)",
+      "leaseTopic": "Tópico de prazo do carregador",
       "maxTopic": "Máximo do carro (MQTT)",
       "tiles": {
         "expected": "Potência média esperada",
@@ -1829,6 +1830,10 @@
         "blindHoldA": {
           "label": "Corrente do carro que continua",
           "help": "Só quando um carro continua a carregar com o contador calado."
+        },
+        "leaseS": {
+          "label": "Prazo do carregador",
+          "help": "Quanto tempo um carregador com prazo mantém a corrente sem notícias do evcc. Depois desce sozinho para a corrente com a gestão desligada (pelo menos o mínimo do carregador), para que uma falha de rede ou um evcc parado não sobrecarreguem o contador. Acima da linha é mais curto: num burst, o tempo que falta até ao fim do burst; fora disso, o que o contador ainda aguenta. No máximo 120 s: na linha, um salto de 2,5 kVA dispara o contador em cerca de 70 s."
         }
       },
       "locked": "Só leitura. Inicie sessão como admin para alterar estas definições.",
@@ -1864,6 +1869,7 @@
       "measureTopicShort": "Tópico MQTT opcional com a corrente deste carro, p. ex. do TeslaMate.",
       "maxTopicShort": "Tópico opcional com a corrente máxima que o carro aceita agora.",
       "tempTopicShort": "Tópico opcional com a temperatura do carregador em °C.",
+      "leaseTopicShort": "Opcional, para uma bridge de carregador que aceite prazos (o seu tópico …/lease/set). O evcc envia a corrente com um prazo em cada passo de controlo; se o evcc deixar de o renovar, o carregador desce sozinho para a corrente de recurso.",
       "notSet": "Não definido",
       "unitReadings": "leituras",
       "fastOf": "Carregador rápido {name}",

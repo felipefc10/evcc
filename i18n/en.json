@@ -1726,6 +1726,7 @@
       "measureTopic": "Current feed",
       "measureUnit": "Unit",
       "tempTopic": "Charger temperature (°C)",
+      "leaseTopic": "Charger lease topic",
       "maxTopic": "Car maximum (A)",
       "tiles": {
         "expected": "Expected average power",
@@ -1859,6 +1860,10 @@
         "blindHoldA": {
           "label": "Current for the car kept charging",
           "help": "Used only when \"When the meter stays silent\" is set to hold a fixed current."
+        },
+        "leaseS": {
+          "label": "Charger lease",
+          "help": "How long a leased charger keeps its current without hearing from evcc. Then it drops to the limit-while-off current (at least the charger minimum) by itself, so a lost network or a stopped evcc cannot overload the meter. Over the line it is shorter: in a burst, the time left until the burst ends; otherwise what the meter can still stand. At most 120 s: at the line a 2.5 kVA step trips the meter in about 70 s."
         }
       },
       "locked": "Viewing only. Log in as admin to change these settings.",
@@ -1894,6 +1899,7 @@
       "measureTopicShort": "Optional MQTT topic with this car's current, e.g. from TeslaMate.",
       "maxTopicShort": "Optional topic with the most current the car accepts now.",
       "tempTopicShort": "Optional topic with the charger temperature in °C.",
+      "leaseTopicShort": "Optional, for a charger bridge that supports leases (its …/lease/set topic). evcc sends the current with a deadline every control step; if evcc stops renewing it, the charger drops to the fallback current by itself.",
       "notSet": "Not set",
       "unitReadings": "readings",
       "fastOf": "{name} fast charger",

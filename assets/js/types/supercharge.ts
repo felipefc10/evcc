@@ -194,6 +194,7 @@ export interface LoadSettings {
   baseTiStopS: number;
   trimMaxA: number;
   maxTempC: number;
+  leaseS: number;
   supercharge: Record<string, number>;
 }
 
@@ -203,6 +204,7 @@ export interface LoadLpConfig {
   measureUnit: "A" | "W";
   tempTopic: string;
   maxTopic: string;
+  leaseTopic: string;
 }
 
 export interface LoadConfig {
